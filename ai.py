@@ -1,5 +1,8 @@
 import serial
 import sys
+import os
+import time
+from pyax12.connection import Connection
 
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
@@ -12,11 +15,19 @@ def main():
     back_camera_filename = sys.argv[2]
     heading_filename = sys.argv[3]
 
+    weapon_arm = WeaponArm()
+    weapon_arm.goToHomePosition()
+
+    start_following_tags(front_camera_filename, back_camera_filename)
+
+def start_following_tags(front_camera_filename, back_camera_filename):
     while True:
         front_heading = 0
         back_heading = 0
         front_id = 0
         back_id = 0
+ 
+        start_time = time.time()
         with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
             # For now, we just take the last measurement in the file.
             # TODO: Be smarter about this.
@@ -40,6 +51,7 @@ def main():
         heading_string = degreesToMotorDirections(chosen_heading)
         print(heading_string)
         displayTTYSend(heading_string)
+   
 
 def degreesToMotorDirections(angle):
     """Turns angle into AA/aa/ZZ/zz directions"""
@@ -70,6 +82,32 @@ def displayTTYSend(str1):
     port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
     port.write(('<' + str1 + '>' + '\n').encode('ascii'))
     port.close()
+
+class WeaponArm:
+    def __init__(self):
+        # Wait for arm to be available
+        while not os.path.exists('/dev/ttyACM0'):
+            time.sleep(.1)
+    
+        # Set up actuators
+        serial_connection_successful = False
+        while not serial_connection_successful:
+            serial_connection_successful=True
+            try:
+                self.serial_connection = Connection(port='/dev/ttyACM0',
+                                               baudrate=1000000,
+                                               timeout=.1)
+            except serial.serialutil.SerialException:
+                serial_connection_successful = False
+
+    def goToHomePosition(self):
+        self.serial_connection.goto(1, 1900, speed=64)
+        self.serial_connection.goto(4, 1023, speed=64)
+
+        # If we don't have this, the server motors sometimes don't start up
+        # TODO: find a real fix for this
+        print(end='')
+        
 
 if __name__ == '__main__':
     main()
