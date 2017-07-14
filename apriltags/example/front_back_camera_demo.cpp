@@ -86,6 +86,7 @@ extern char *optarg;
 const char* windowName = "apriltags_demo";
 
 
+
 // utility function to provide current system time (used below in
 // determining frame rate at which images are being processed)
 double tic() {
@@ -158,6 +159,9 @@ class Demo {
 
   Serial m_serial;
 
+  cv::Mat m_camera_matrix;
+  cv::Mat m_dist_coeffs;
+
 public:
 
   // default constructor
@@ -186,7 +190,12 @@ public:
     m_deviceId(0),
     m_camera_number(0),
     m_camera_name("")
-  {}
+  {
+    m_camera_matrix = (cv::Mat_<double>(3, 3) << 462.63107599, 0.,           326.21297766,
+                                             0.,           462.21461581, 176.90908288,
+                                             0.,           0.,           1.);
+    m_dist_coeffs = (cv::Mat_<double>(1, 5) << 0.09591939, -0.19559665, 0.00127468, 0.00103905, 0.09594666);
+  }
 
   // changing the tag family
   void setTagCodes(string s) {
@@ -424,11 +433,21 @@ public:
     //      m_cap.retrieve(image);
 
     // detect April tags (requires a gray scale image)
+    
     cv::cvtColor(image, image_gray, CV_BGR2GRAY);
+
+    //cv::Mat image_gray_undis = image_gray.clone();
+    cv::Mat image_gray_undis;
+
+    cv::undistort(image_gray, image_gray_undis, m_camera_matrix, m_dist_coeffs);
+    
+    image_gray = image_gray_undis;
+
     double t0;
     if (m_timing) {
       t0 = tic();
     }
+
     vector<AprilTags::TagDetection> detections = m_tagDetector->extractTags(image_gray);
     if (m_timing) {
       double dt = tic()-t0;
@@ -443,6 +462,9 @@ public:
 
     // show the current image including any detections
     if (m_draw) {
+      cv::Mat image_undis;
+      cv::undistort(image, image_undis, m_camera_matrix, m_dist_coeffs);
+      image = image_undis;
       for (int i=0; i<detections.size(); i++) {
         // also highlight in the image
         detections[i].draw(image);
