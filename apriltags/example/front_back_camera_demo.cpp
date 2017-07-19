@@ -22,6 +22,7 @@ using namespace std;
 #include <sys/time.h>
 #include <fstream>
 #include <csignal>
+#include <string>
 
 const string usage = "\n"
   "Usage:\n"
@@ -365,8 +366,10 @@ public:
     // opening the device via OpenCV; confirmed to work with Logitech
     // C270; try exposure=20, gain=100, brightness=150
 
-    string video_str = "/dev/video0";
-    video_str[10] = '0' + m_deviceId;
+    stringstream video_str_builder;
+    video_str_builder << "/dev/video";
+    video_str_builder << m_deviceId;
+    string video_str = video_str_builder.str();
     int device = v4l2_open(video_str.c_str(), O_RDWR | O_NONBLOCK);
 
     if (m_exposure >= 0) {
