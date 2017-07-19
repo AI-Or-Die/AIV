@@ -1,6 +1,11 @@
 import cv2
 import numpy as np
 import glob
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-O', action='store', default=None)
+args = parser.parse_args()
 
 # Set up camera
 cap = cv2.VideoCapture(0)
@@ -23,8 +28,8 @@ while cap.isOpened():
   ret, frame = cap.read()
   image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
   corners_found, corners = cv2.findChessboardCorners(image, (nx, ny), None)
-  cv2.drawChessboardCorners(image, (nx, ny), corners, corners_found) 
-  cv2.imshow('Camera Calibration', image)
+  cv2.drawChessboardCorners(frame, (nx, ny), corners, corners_found) 
+  cv2.imshow('Camera Calibration', frame)
   waitKey = cv2.waitKey(1)
   if waitKey & 0xFF == ord(' '):
     if corners_found:
@@ -38,5 +43,12 @@ while cap.isOpened():
 
 cap.release()
 ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, image.shape[::-1], None, None)
-print(camera_matrix)
-print(dist_coeffs)
+if args.O:
+  with open(args.O, 'w') as file:
+    for row in range(3):
+      for col in range(3):
+        file.write(str(camera_matrix[row, col]) + ' ')
+      file.write('\n')
+    for num in dist_coeffs[0]:
+      file.write(str(num) + ' ')
+    file.write('\n')
