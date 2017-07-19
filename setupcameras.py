@@ -4,14 +4,22 @@ import sys, os
 import subprocess
 import argparse
 
+# Maybe make these settable in the future, depending on how configurable we want this to be
+front_camera_height = 360
+front_camera_width = 640
+front_camera_outfile = 'front.txt'
+front_camera_fov = 89.0
+
+back_camera_height = 360
+back_camera_width = 640
+back_camera_outfile = 'back.txt'
+back_camera_fov = 89.0
+
+save_file = 'config.txt'
+
 def main():
-    parser = argparse.ArgumentParser(description='Process arguments for video camera setup')
-    parser.add_argument('--save', action='store', default=None)
-    args = parser.parse_args()
-    print(args.save)
     available_video_mount_points = glob.glob('/dev/video[0-9]*')
     video_numbers = [int(mount_point.replace('/dev/video', '')) for mount_point in available_video_mount_points]
-    print(video_numbers)
     
     front_camera_number = None
     back_camera_number = None
@@ -69,9 +77,19 @@ def main():
         cap.release()
     cv2.destroyAllWindows()
 
-    if args.save:
-        with open(args.save, 'w') as file:
-            file.write('Front ' + str(front_camera_number) + '\nBack ' + str(back_camera_number) + '\n')
+    with open(save_file, 'w') as file:
+        file.write('Front ' + str(front_camera_number) + ' ' + 
+                   front_camera_outfile + ' ' + 
+                   str(front_camera_width) + ' ' + 
+                   str(front_camera_height) + ' ' +
+                   str(front_camera_fov) + '\n')
+
+        file.write('Back ' + str(back_camera_number) + ' ' +
+                   back_camera_outfile + ' ' + 
+                   str(front_camera_width) + ' ' +
+                   str(front_camera_height) + ' ' +
+                   str(front_camera_fov) + '\n')
+
 
 if __name__ == '__main__':
     main()

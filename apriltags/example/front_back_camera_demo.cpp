@@ -21,6 +21,7 @@ using namespace std;
 #include <list>
 #include <sys/time.h>
 #include <fstream>
+#include <csignal>
 
 const string usage = "\n"
   "Usage:\n"
@@ -42,8 +43,6 @@ const string usage = "\n"
   "  -B <brightness> Manually set the camera brightness (default 128; range 0-255)\n"
   "  -N <camera number> Set camera number (1 for front, 2 for back)\n"
   "  -n <config file> Read in camera config from give config file. Must come after -N"
-  "  -V <field_of_view> specify field of view for camera"
-  "  -O <output file> save output to file (for reading by another program)"
   "\n";
 
 const string intro = "\n"
@@ -88,7 +87,7 @@ extern char *optarg;
 
 const char* windowName = "apriltags_demo";
 
-
+cv::VideoCapture *capture_device;
 
 // utility function to provide current system time (used below in
 // determining frame rate at which images are being processed)
@@ -165,7 +164,7 @@ class Demo {
   cv::Mat m_camera_matrix;
   cv::Mat m_dist_coeffs;
 
-  char* m_output_filename;
+  string m_output_filename;
   ofstream m_output_file;
 
 public:
@@ -195,21 +194,21 @@ public:
 
     m_deviceId(0),
     m_camera_number(0),
-    m_camera_name(""),
-
-    m_output_filename(NULL)
+    m_camera_name("")
 
   {
     m_camera_matrix = (cv::Mat_<double>(3, 3) << 462.63107599, 0.,           326.21297766,
                                              0.,           462.21461581, 176.90908288,
                                              0.,           0.,           1.);
     m_dist_coeffs = (cv::Mat_<double>(1, 5) << 0.09591939, -0.19559665, 0.00127468, 0.00103905, 0.09594666);
+    capture_device = &m_cap;
   }
 
   ~Demo() {
 
-    free(m_output_filename);
+    capture_device = NULL;
   }
+
 
   // changing the tag family
   void setTagCodes(string s) {
@@ -232,7 +231,7 @@ public:
   // parse command line options to change default behavior
   void parseOptions(int argc, char* argv[]) {
     int c;
-    while ((c = getopt(argc, argv, ":h?adtV:O:n:N:C:F:H:S:W:E:G:B:D:")) != -1) {
+    while ((c = getopt(argc, argv, ":h?adtn:N:C:F:H:S:W:E:G:B:D:")) != -1) {
       // Each option character has to be in the string in getopt();
       // the first colon changes the error character from '?' to ':';
       // a colon after an option means that there is an extra
@@ -301,12 +300,23 @@ public:
             exit(1);
         }
         { // Read in config directions. If our camera is the back camera, we want the second line, otherwise we want the first
-          string filename(optarg);
+          // Open file
           ifstream configFile(optarg);
           string line;
+          // Read in line 1 for front, line 2 for back
           getline(configFile, line);
           if (m_camera_number == 2) getline(configFile, line);
-          m_deviceId = line[line.length()-1] - '0';
+          // Read in values one at a time
+          stringstream linestream(line);
+          string camera_name;
+          linestream >> camera_name;
+          m_camera_name = camera_name; // Convert from std::string to cv::String
+          
+          linestream >> m_deviceId;
+          linestream >> m_output_filename;
+          linestream >> m_width;
+          linestream >> m_height;
+          linestream >> m_fov;
         }
         break;
       case 'N':
@@ -316,12 +326,6 @@ public:
             exit(1);
         }
         m_camera_name = (m_camera_number == 1) ? "Front" : "Back";
-        break;
-      case 'V':
-        m_fov = atof(optarg);
-        break;
-      case 'O':
-        m_output_filename = strdup(optarg);
         break;
       case ':': // unknown option, from getopt
         cout << intro;
@@ -484,14 +488,13 @@ public:
       print_detection(detections[i]);
     }
 
-    if (m_output_filename) {
-      m_output_file.open(m_output_filename); 
-      for (int i = 0; i < detections.size(); i++) {
-          m_output_file << detections[i].cxy.first << endl;
-          cout << detections[i].cxy.first << endl;
-      }
-      m_output_file.close();
+    m_output_file.open(m_output_filename.c_str()); 
+    for (int i = 0; i < detections.size(); i++) {
+        m_output_file << detections[i].cxy.first << endl;
+        cout << detections[i].cxy.first << endl;
     }
+    m_output_file.close();
+    
 
     // show the current image including any detections
     if (m_draw) {
@@ -596,8 +599,16 @@ public:
 }; // Demo
 
 
+void signalHandler (int signum) {
+  if (capture_device) capture_device->release();
+  exit(signum);
+}
+
 // here is were everything begins
 int main(int argc, char* argv[]) {
+  
+  signal(SIGTERM, signalHandler);
+  signal(SIGINT, signalHandler);
   Demo demo;
 
   // process command line options
