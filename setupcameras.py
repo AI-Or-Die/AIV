@@ -3,6 +3,7 @@ import glob
 import sys, os
 import subprocess
 import argparse
+import re
 
 # Maybe make these settable in the future, depending on how configurable we want this to be
 front_camera_height = 360
@@ -76,15 +77,30 @@ def main():
                 break
         cap.release()
     cv2.destroyAllWindows()
+    
+    usb_matcher = re.compile(r'[0-9]+-[0-9]+.*\.[0-9]+')
+    usb_path_finder_command_front = "udevadm info --name video" + str(front_camera_number) + " -q path"
+    usb_path_finder_command_back = "udevadm info --name video" + str(back_camera_number) + " -q path"
+    
+    path_finder_process_front = subprocess.Popen(usb_path_finder_command_front.split(), stdout=subprocess.PIPE)
+    path_finder_process_back = subprocess.Popen(usb_path_finder_command_back.split(), stdout=subprocess.PIPE)
+
+    path_finder_process_output_front = path_finder_process_front.stdout.read().decode('ascii')
+    path_finder_process_output_back = path_finder_process_back.stdout.read().decode('ascii')
+
+    print(path_finder_process_output_front)
+    print(path_finder_process_output_back)
+    usb_path_front = usb_matcher.findall(path_finder_process_output_front)[0]
+    usb_path_back = usb_matcher.findall(path_finder_process_output_back)[0]
 
     with open(save_file, 'w') as file:
-        file.write('Front ' + str(front_camera_number) + ' ' + 
+        file.write('Front ' + usb_path_front + ' ' + 
                    front_camera_outfile + ' ' + 
                    str(front_camera_width) + ' ' + 
                    str(front_camera_height) + ' ' +
                    str(front_camera_fov) + '\n')
 
-        file.write('Back ' + str(back_camera_number) + ' ' +
+        file.write('Back ' + usb_path_back + ' ' +
                    back_camera_outfile + ' ' + 
                    str(front_camera_width) + ' ' +
                    str(front_camera_height) + ' ' +
