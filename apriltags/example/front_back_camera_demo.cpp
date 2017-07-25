@@ -23,6 +23,7 @@ using namespace std;
 #include <fstream>
 #include <csignal>
 #include <string>
+#include <regex>
 
 const string usage = "\n"
   "Usage:\n"
@@ -313,7 +314,42 @@ public:
           linestream >> camera_name;
           m_camera_name = camera_name; // Convert from std::string to cv::String
           
-          linestream >> m_deviceId;
+          string usb_location;
+          linestream >> usb_location;
+
+          FILE *in;
+          char buf[512];
+          const string find_videonum_command = "find /sys/bus/usb/devices/" + usb_location + " | grep video[0-9]*$";
+          string command_out;
+
+          if(!(in = popen(find_videonum_command.c_str(), "r"))) {
+              std:cout << "Could not open video command";
+          }
+
+          try {
+              while (!feof(in)) {
+                  if (fgets(buf, 512, in) != NULL) command_out += buf;
+              }
+          } catch (...) {
+              pclose(in);
+              throw;
+          }
+          pclose(in);
+
+
+          cout << "COMMAND OUTPUT IS " << command_out << endl;
+          regex videonum_regex("video([0-9]+)\n?$"); // Gets the video number at the end of output
+          smatch match_results;
+          bool found_videonum = regex_search(command_out, match_results, videonum_regex);
+          if (!found_videonum) {
+              cout << "Did not find video number, check config file" << endl;
+              exit(1);
+          }
+
+          m_deviceId = atoi(match_results[1].str().c_str());
+          cout << "Device id is " << m_deviceId << endl;
+         
+          
           linestream >> m_output_filename;
           linestream >> m_width;
           linestream >> m_height;
