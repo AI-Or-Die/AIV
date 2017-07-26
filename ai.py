@@ -22,6 +22,7 @@ def main():
             print(front_heading or back_heading) 
         heading_string = degreesToMotorDirections(front_heading or back_heading)
         print(heading_string)
+        displayTTYSend(heading_string)
 
 def degreesToMotorDirections(angle):
     # Get speed between 0 and 25
@@ -45,7 +46,7 @@ def degreesToMotorDirections(angle):
     
 
 def displayTTYSend(str1):
-    port = serial.Serial("/dev/ttyUSB1", 9600, timeout = 2)
+    port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
     port.write((str1 + '\n').encode('ascii'))
     port.close()
 

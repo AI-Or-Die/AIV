@@ -1,4 +1,5 @@
 #!/bin/sh
+export DISPLAY=:0 # Show on the main display, not on ssh
 ./apriltags/build/bin/front_back_camera_demo -N 1 -n config.txt & 
 apr1=$!
 ./apriltags/build/bin/front_back_camera_demo -N 2 -n config.txt & 
