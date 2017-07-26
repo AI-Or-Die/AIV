@@ -457,12 +457,6 @@ public:
     // (m_fx, m_fy, m_px, m_py, m_tagSize)
 
 
-    //Set up field of view
-    const double h_fov = 2 * atan(tan(m_fov/2) * cos(atan2(m_width, m_height)));
-    const double v_fov = 2 * atan(tan(m_fov/2) * sin(atan2(m_width, m_height)));
-
-    const double h_degrees_per_pixel = h_fov / m_width;
-    const double v_degrees_per_pixel = v_fov / m_height;
 
     Eigen::Vector3d translation;
     Eigen::Matrix3d rotation;
@@ -529,7 +523,13 @@ public:
 
     m_output_file.open(m_output_filename.c_str()); 
     for (int i = 0; i < detections.size(); i++) {
-        m_output_file << detections[i].cxy.first << endl;
+        //Set up field of view
+        const double h_fov = 2 * atan(tan(m_fov/2) * cos(atan2(m_width, m_height)));
+        const double v_fov = 2 * atan(tan(m_fov/2) * sin(atan2(m_width, m_height)));
+
+        const double h_degrees_per_pixel = h_fov / m_width;
+        const double v_degrees_per_pixel = v_fov / m_height;
+        m_output_file << (detections[i].cxy.first - (m_width/2)) * h_degrees_per_pixel << endl;
         cout << detections[i].cxy.first << endl;
     }
     m_output_file.close();
