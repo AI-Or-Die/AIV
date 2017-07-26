@@ -130,6 +130,7 @@ void wRo_to_euler(const Eigen::Matrix3d& wRo, double& yaw, double& pitch, double
     roll  = standardRad(atan2(wRo(0,2)*s - wRo(1,2)*c, -wRo(0,1)*s + wRo(1,1)*c));
 }
 
+bool break_camera_loop = false;
 
 class Demo {
 
@@ -611,7 +612,7 @@ public:
     int frame = 0;
     double last_t = tic();
     
-    while (true) {
+    while (!break_camera_loop) {
 
       // capture frame
       bool image_read_success = m_cap.read(image);
@@ -633,14 +634,15 @@ public:
       // exit if any key is pressed
       if (cv::waitKey(1) >= 0) break;
     }
+    
+    m_cap.release();
   }
 
 }; // Demo
 
 
 void signalHandler (int signum) {
-  if (capture_device) capture_device->release();
-  exit(signum);
+    break_camera_loop = true;
 }
 
 // here is were everything begins
@@ -663,6 +665,7 @@ int main(int argc, char* argv[]) {
 
     // the actual processing loop where tags are detected and visualized
     demo.loop();
+    
 
   } else {
     cout << "Processing image" << endl;
