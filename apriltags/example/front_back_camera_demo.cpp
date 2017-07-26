@@ -522,13 +522,13 @@ public:
     }
 
     m_output_file.open(m_output_filename.c_str()); 
-    for (int i = 0; i < detections.size(); i++) {
-        //Set up field of view
-        const double h_fov = 2 * atan(tan(m_fov/2) * cos(atan2(m_width, m_height)));
-        const double v_fov = 2 * atan(tan(m_fov/2) * sin(atan2(m_width, m_height)));
+    //Set up field of view
+    const double h_fov = atan(tan((m_fov/180) * M_PI) * cos(atan2(m_width, m_height))) / M_PI * 180;
+    const double v_fov = atan(tan((m_fov/180) * M_PI) * sin(atan2(m_width, m_height))) / M_PI * 180;
 
-        const double h_degrees_per_pixel = h_fov / m_width;
-        const double v_degrees_per_pixel = v_fov / m_height;
+    const double h_degrees_per_pixel = h_fov / m_width;
+    const double v_degrees_per_pixel = v_fov / m_height;
+    for (int i = 0; i < detections.size(); i++) {
         m_output_file << (detections[i].cxy.first - (m_width/2)) * h_degrees_per_pixel << endl;
         cout << detections[i].cxy.first << endl;
     }

@@ -17,7 +17,7 @@ def main():
                   front_heading = float(line)
             for line in back_file:
                   back_heading = float(line)
-            print(front_heading | back_heading) 
+            print(front_heading or back_heading) 
     
 
 def displayTTYSend(str1):
