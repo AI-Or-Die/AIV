@@ -346,7 +346,7 @@ public:
               exit(1);
           }
 
-          m_deviceId = atoi(match_results[1].str().c_str());
+          m_deviceId = stoi(match_results[1].str());
           cout << "Device id is " << m_deviceId << endl;
          
           
