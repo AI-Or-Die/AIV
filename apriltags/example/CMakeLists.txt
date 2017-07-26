@@ -10,6 +10,3 @@ pods_install_executables(imu)
 
 add_executable(front_back_camera_demo front_back_camera_demo.cpp Serial.cpp)
 pods_install_executables(front_back_camera_demo)
-
-add_executable(get_heading get_heading.cpp)
-pods_install_executables(get_heading)
