@@ -530,7 +530,7 @@ public:
     const double h_degrees_per_pixel = h_fov / m_width;
     const double v_degrees_per_pixel = v_fov / m_height;
     for (int i = 0; i < detections.size(); i++) {
-        m_output_file << (detections[i].cxy.first - (m_width/2)) * h_degrees_per_pixel << endl;
+        m_output_file << (detections[i].cxy.first - (m_width/2)) * h_degrees_per_pixel << " " << detections[i].id << endl;
         cout << detections[i].cxy.first << endl;
     }
     m_output_file.close();

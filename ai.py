@@ -14,13 +14,25 @@ def main():
     while True:
         front_heading = 0
         back_heading = 0
+        front_id = 0
+        back_id = 0
         with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
             for line in front_file:
-                  front_heading = float(line)
+                  front_heading, front_id = (float(number) for number in line.split())
             for line in back_file:
-                  back_heading = float(line)
-            print(front_heading or back_heading) 
-        heading_string = degreesToMotorDirections(front_heading or back_heading)
+                  back_heading, back_id = (float(number) for number in line.split())
+                 
+            if front_heading:
+                print("Front heading", front_heading, "Front id", front_id)
+            elif back_heading:
+                print("Back heading", back_heading, "Back id", back_id)      
+        tag_id = front_id or back_id
+        chosen_heading = front_heading or back_heading
+
+        if tag_id % 2 == 0:
+            heading_string = degreesToMotorDirections(chosen_heading)
+        else:
+            heading_string = degreesToMotorDirections(0)
         print(heading_string)
         displayTTYSend(heading_string)
 
