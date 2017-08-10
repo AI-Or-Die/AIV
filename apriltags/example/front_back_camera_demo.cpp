@@ -640,7 +640,7 @@ public:
       }
 
       // exit if any key is pressed
-      if (cv::waitKey(1) >= 0) break;
+      if (cv::waitKey(1) == 'q') break;
     }
     
     m_cap.release();
@@ -661,8 +661,11 @@ int main(int argc, char* argv[]) {
   Demo demo;
 
   // process command line options
+  cout << "Parsing options" << endl;
   demo.parseOptions(argc, argv);
 
+
+  cout << "Setting up" << endl;
   demo.setup();
 
   if (demo.isVideo()) {
