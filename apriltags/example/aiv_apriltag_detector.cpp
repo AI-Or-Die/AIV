@@ -8,9 +8,7 @@
  * images. Detections are both visualized in the live image and shown
  * in the text console. Optionally allows selecting of a specific
  * camera in case multiple ones are present and specifying image
- * resolution as long as supported by the camera. Also includes the
- * option to send tag detections via a serial port, for example when
- * running on a Raspberry Pi that is connected to an Arduino.
+ * resolution as long as supported by the camera.
  */
 
 using namespace std;
@@ -24,6 +22,7 @@ using namespace std;
 #include <csignal>
 #include <string>
 #include <regex>
+#include <cmath>
 
 const string usage = "\n"
   "Usage:\n"
@@ -31,7 +30,6 @@ const string usage = "\n"
   "\n"
   "Options:\n"
   "  -h  -?          Show help options\n"
-  "  -a              Arduino (send tag ids over serial port)\n"
   "  -d              Disable graphics\n"
   "  -t              Timing of tag extraction\n"
   "  -C <bbxhh>      Tag family (default 36h11)\n"
@@ -44,7 +42,7 @@ const string usage = "\n"
   "  -G <gain>       Manually set camera gain (default auto; range 0-255)\n"
   "  -B <brightness> Manually set the camera brightness (default 128; range 0-255)\n"
   "  -N <camera number> Set camera number (1 for front, 2 for back)\n"
-  "  -n <config file> Read in camera config from give config file. Must come after -N"
+  "  -n <config file> Read in camera config from given config file. Must come after -N"
   "\n";
 
 const string intro = "\n"
@@ -83,10 +81,6 @@ const string intro = "\n"
 extern int optind;
 extern char *optarg;
 
-// For Arduino: locally defined serial port access class
-#include "Serial.h"
-
-
 const char* windowName = "apriltags_demo";
 
 cv::VideoCapture *capture_device;
@@ -99,8 +93,6 @@ double tic() {
   return ((double)t.tv_sec + ((double)t.tv_usec)/1000000.);
 }
 
-
-#include <cmath>
 
 #ifndef PI
 const double PI = 3.14159265358979323846;
@@ -138,7 +130,6 @@ class Demo {
   AprilTags::TagCodes m_tagCodes;
 
   bool m_draw; // draw image and April tag detections?
-  bool m_arduino; // send tag detections to serial port?
   bool m_timing; // print timing information for each tag extraction call
 
   int m_width; // image size in pixels
@@ -162,8 +153,6 @@ class Demo {
   int m_camera_number; //1 for back, 2 for front
   cv::String m_camera_name; //Null if not set, otherwise Front or Back
 
-  Serial m_serial;
-
   cv::Mat m_camera_matrix;
   cv::Mat m_dist_coeffs;
 
@@ -178,7 +167,6 @@ public:
     m_tagCodes(AprilTags::tagCodes36h11),
 
     m_draw(true),
-    m_arduino(false),
     m_timing(false),
 
     m_width(640),
@@ -233,7 +221,7 @@ public:
   // parse command line options to change default behavior
   void parseOptions(int argc, char* argv[]) {
     int c;
-    while ((c = getopt(argc, argv, ":h?adtn:N:C:F:H:S:W:E:G:B:D:")) != -1) {
+    while ((c = getopt(argc, argv, ":h?dtn:N:C:F:H:S:W:E:G:B:D:")) != -1) {
       // Each option character has to be in the string in getopt();
       // the first colon changes the error character from '?' to ':';
       // a colon after an option means that there is an extra
@@ -244,9 +232,6 @@ public:
         cout << intro;
         cout << usage;
         exit(0);
-        break;
-      case 'a':
-        m_arduino = true;
         break;
       case 'd':
         m_draw = false;
@@ -313,7 +298,7 @@ public:
           string camera_name;
           linestream >> camera_name;
           m_camera_name = camera_name; // Convert from std::string to cv::String
-          
+
           string usb_location;
           linestream >> usb_location;
 
@@ -348,8 +333,8 @@ public:
 
           m_deviceId = stoi(match_results[1].str());
           cout << "Device id is " << m_deviceId << endl;
-         
-          
+
+
           linestream >> m_output_filename;
           linestream >> m_width;
           linestream >> m_height;
@@ -386,11 +371,6 @@ public:
     if (m_draw) {
       cv::String windowName = (m_camera_number == 1) ? "Front" : "Back";
       cv::namedWindow(windowName, 1);
-    }
-
-    // optional: prepare serial port for communication with Arduino
-    if (m_arduino) {
-      m_serial.open("/dev/ttyACM0");
     }
   }
 
@@ -429,7 +409,7 @@ public:
       v4l2_set_control(device, V4L2_CID_BRIGHTNESS, m_brightness*256);
     }
     v4l2_close(device);
-#endif 
+#endif
 
     // find and open a USB camera (built in laptop camera, web cam etc)
     m_cap = cv::VideoCapture(m_deviceId);
@@ -449,7 +429,7 @@ public:
   void print_detections_to_file(const vector<AprilTags::TagDetection> &detections, const string &filename) {
     ofstream output_file;
 
-    output_file.open(filename.c_str()); 
+    output_file.open(filename.c_str());
     //Set up field of view
     const double h_fov = atan(tan((m_fov/180) * M_PI) * cos(atan2(m_width, m_height))) / M_PI * 180;
     const double v_fov = atan(tan((m_fov/180) * M_PI) * sin(atan2(m_width, m_height))) / M_PI * 180;
@@ -514,15 +494,9 @@ public:
     //      m_cap.retrieve(image);
 
     // detect April tags (requires a gray scale image)
-    
     cv::cvtColor(image, image_gray, CV_BGR2GRAY);
 
-    //cv::Mat image_gray_undis = image_gray.clone();
-    cv::Mat image_gray_undis;
-
-    cv::undistort(image_gray, image_gray_undis, m_camera_matrix, m_dist_coeffs);
-    
-    image_gray = image_gray_undis;
+    cv::undistort(image_gray, image_gray.clone(), m_camera_matrix, m_dist_coeffs);
 
     double t0;
     if (m_timing) {
@@ -542,7 +516,7 @@ public:
     }
     print_detections_to_file(detections, m_output_filename);
 
-    
+
 
     // show the current image including any detections
     if (m_draw) {
@@ -553,43 +527,20 @@ public:
         // also highlight in the image
         detections[i].draw(image);
       }
-      
+
       //Set up text drawing for "Front" and "Back"
       int fontFace = cv::FONT_HERSHEY_DUPLEX;
       double fontScale = 2.0;
       cv::Scalar fontColor(255, 255, 255);
       int fontThickness = 2;
-      
+
       cv::Size textSize = getTextSize(m_camera_name, fontFace, fontScale, fontThickness, NULL);
       int textHeight = textSize.height;
       int imageHeight = image.rows;
 
-      
       cv::Point pt(0, imageHeight);
       putText(image, m_camera_name, pt, fontFace, fontScale, fontColor, fontThickness);
       imshow(m_camera_name, image); // OpenCV call
-    }
-
-    // optionally send tag information to serial port (e.g. to Arduino)
-    if (m_arduino) {
-      if (detections.size() > 0) {
-        // only the first detected tag is sent out for now
-        Eigen::Vector3d translation;
-        Eigen::Matrix3d rotation;
-        detections[0].getRelativeTranslationRotation(m_tagSize, m_fx, m_fy, m_px, m_py,
-                                                     translation, rotation);
-        m_serial.print(detections[0].id);
-        m_serial.print(",");
-        m_serial.print(translation(0));
-        m_serial.print(",");
-        m_serial.print(translation(1));
-        m_serial.print(",");
-        m_serial.print(translation(2));
-        m_serial.print("\n");
-      } else {
-        // no tag detected: tag ID = -1
-        m_serial.print("-1,0.0,0.0,0.0\n");
-      }
     }
   }
 
@@ -619,7 +570,7 @@ public:
 
     int frame = 0;
     double last_t = tic();
-    
+
     while (!break_camera_loop) {
 
       // capture frame
@@ -642,20 +593,20 @@ public:
       // exit if any key is pressed
       if (cv::waitKey(1) == 'q') break;
     }
-    
+
     m_cap.release();
   }
 
 }; // Demo
 
-
+// Breaks out of the camera loop gently on ctrl+c.
 void signalHandler (int signum) {
     break_camera_loop = true;
 }
 
-// here is were everything begins
 int main(int argc, char* argv[]) {
-  
+
+  // Break out of the camera loop gently on ctrl+c or SIGTERM
   signal(SIGTERM, signalHandler);
   signal(SIGINT, signalHandler);
   Demo demo;
@@ -676,7 +627,7 @@ int main(int argc, char* argv[]) {
 
     // the actual processing loop where tags are detected and visualized
     demo.loop();
-    
+
 
   } else {
     cout << "Processing image" << endl;
