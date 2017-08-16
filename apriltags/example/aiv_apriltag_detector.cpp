@@ -45,13 +45,6 @@ const string usage = "\n"
   "  -n <config file> Read in camera config from given config file. Must come after -N"
   "\n";
 
-const string intro = "\n"
-    "April tags test code\n"
-    "(C) 2012-2014 Massachusetts Institute of Technology\n"
-    "Michael Kaess\n"
-    "\n";
-
-
 #ifndef __APPLE__
 #define EXPOSURE_CONTROL // only works in Linux
 #endif
@@ -229,7 +222,6 @@ public:
       switch (c) {
       case 'h':
       case '?':
-        cout << intro;
         cout << usage;
         exit(0);
         break;
@@ -350,7 +342,6 @@ public:
         m_camera_name = (m_camera_number == 1) ? "Front" : "Back";
         break;
       case ':': // unknown option, from getopt
-        cout << intro;
         cout << usage;
         exit(1);
         break;
