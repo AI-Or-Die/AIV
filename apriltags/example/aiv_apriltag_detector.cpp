@@ -33,7 +33,7 @@ const string usage = "\n"
   "  -d              Disable graphics\n"
   "  -t              Timing of tag extraction\n"
   "  -C <bbxhh>      Tag family (default 36h11)\n"
-  "  -D <id>         Video device ID (if multiple cameras present)\n"
+  "  -D <id>         Video device ID (if multiple cameras present). Not needed if -n is set\n"
   "  -F <fx>         Focal length in pixels\n"
   "  -W <width>      Image width (default 640, availability depends on camera)\n"
   "  -H <height>     Image height (default 480, availability depends on camera)\n"
@@ -135,8 +135,6 @@ class Demo {
   double m_fov; // Camera diagonal field of fiew
 
   int m_deviceId; // camera id (in case of multiple cameras)
-
-  list<string> m_imgNames;
 
   cv::VideoCapture m_cap;
 
@@ -313,8 +311,6 @@ public:
           }
           pclose(in);
 
-
-          cout << "COMMAND OUTPUT IS " << command_out << endl;
           regex videonum_regex("video([0-9]+)\n?$"); // Gets the video number at the end of output
           smatch match_results;
           bool found_videonum = regex_search(command_out, match_results, videonum_regex);
@@ -345,12 +341,6 @@ public:
         cout << usage;
         exit(1);
         break;
-      }
-    }
-
-    if (argc > optind) {
-      for (int i=0; i<argc-optind; i++) {
-        m_imgNames.push_back(argv[optind+i]);
       }
     }
   }
@@ -417,6 +407,8 @@ public:
 
   }
 
+  // Prints a set of detections to the given file.
+  // Format: "<degrees horizontal> <Tag id>"
   void print_detections_to_file(const vector<AprilTags::TagDetection> &detections, const string &filename) {
     ofstream output_file;
 
@@ -446,8 +438,6 @@ public:
     // NOTE: for this to be accurate, it is necessary to use the
     // actual camera parameters here as well as the actual tag size
     // (m_fx, m_fy, m_px, m_py, m_tagSize)
-
-
 
     Eigen::Vector3d translation;
     Eigen::Matrix3d rotation;
@@ -507,8 +497,6 @@ public:
     }
     print_detections_to_file(detections, m_output_filename);
 
-
-
     // show the current image including any detections
     if (m_draw) {
       cv::Mat image_undis;
@@ -535,25 +523,7 @@ public:
     }
   }
 
-  // Load and process a single image
-  void loadImages() {
-    cv::Mat image;
-    cv::Mat image_gray;
-
-    for (list<string>::iterator it=m_imgNames.begin(); it!=m_imgNames.end(); it++) {
-      image = cv::imread(*it); // load image with opencv
-      processImage(image, image_gray);
-      while (cv::waitKey(100) == -1) {}
-    }
-  }
-
-  // Video or image processing?
-  bool isVideo() {
-    return m_imgNames.empty();
-  }
-
-  // The processing loop where images are retrieved, tags detected,
-  // and information about detections generated
+  // Contunially process video
   void loop() {
 
     cv::Mat image;
@@ -610,23 +580,12 @@ int main(int argc, char* argv[]) {
   cout << "Setting up" << endl;
   demo.setup();
 
-  if (demo.isVideo()) {
-    cout << "Processing video" << endl;
+  cout << "Processing video" << endl;
+  // setup image source, window for drawing...
+  demo.setupVideo();
 
-    // setup image source, window for drawing, serial port...
-    demo.setupVideo();
-
-    // the actual processing loop where tags are detected and visualized
-    demo.loop();
-
-
-  } else {
-    cout << "Processing image" << endl;
-
-    // process single image
-    demo.loadImages();
-
-  }
+  // the actual processing loop where tags are detected and visualized
+  demo.loop();
 
   return 0;
 }
