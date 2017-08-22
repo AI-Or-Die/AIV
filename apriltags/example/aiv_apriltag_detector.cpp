@@ -71,8 +71,6 @@ const string usage = "\n"
 
 // Needed for getopt / command line options processing
 #include <unistd.h>
-extern int optind;
-extern char *optarg;
 
 const char* windowName = "apriltags_demo";
 
@@ -82,8 +80,8 @@ cv::VideoCapture *capture_device;
 // determining frame rate at which images are being processed)
 double tic() {
   struct timeval t;
-  gettimeofday(&t, NULL);
-  return ((double)t.tv_sec + ((double)t.tv_usec)/1000000.);
+  gettimeofday(&t, nullptr);
+  return (static_cast<double>(t.tv_sec) + (static_cast<double>(t.tv_usec))/1000000.);
 }
 
 
@@ -176,7 +174,6 @@ public:
     m_deviceId(0),
     m_camera_number(0),
     m_camera_name("")
-
   {
     m_camera_matrix = (cv::Mat_<double>(3, 3) << 462.63107599, 0.,           326.21297766,
                                              0.,           462.21461581, 176.90908288,
@@ -185,14 +182,12 @@ public:
     capture_device = &m_cap;
   }
 
-  ~Demo() {
 
-    capture_device = NULL;
-  }
+  ~Demo() = default;
 
 
   // changing the tag family
-  void setTagCodes(string s) {
+  void setTagCodes(const string &s) {
     if (s=="16h5") {
       m_tagCodes = AprilTags::tagCodes16h5;
     } else if (s=="25h7") {
@@ -233,7 +228,7 @@ public:
         setTagCodes(optarg);
         break;
       case 'F':
-        m_fx = atof(optarg);
+        m_fx = strtod(optarg);
         m_fy = m_fx;
         break;
       case 'H':
@@ -241,7 +236,7 @@ public:
         m_py = m_height/2;
          break;
       case 'S':
-        m_tagSize = atof(optarg);
+        m_tagSize = strtod(optarg);
         break;
       case 'W':
         m_width = strtol(optarg);
@@ -272,7 +267,7 @@ public:
         m_deviceId = strtol(optarg);
         break;
       case 'n':
-        if (!m_camera_number) {
+        if (m_camera_number == NULL) {
             cout << "-n option must always come after -N" << endl;
             exit(1);
         }
