@@ -237,14 +237,14 @@ public:
         m_fy = m_fx;
         break;
       case 'H':
-        m_height = atoi(optarg);
+        m_height = strtol(optarg);
         m_py = m_height/2;
          break;
       case 'S':
         m_tagSize = atof(optarg);
         break;
       case 'W':
-        m_width = atoi(optarg);
+        m_width = strtol(optarg);
         m_px = m_width/2;
         break;
       case 'E':
@@ -252,24 +252,24 @@ public:
         cout << "Error: Exposure option (-E) not available" << endl;
         exit(1);
 #endif
-        m_exposure = atoi(optarg);
+        m_exposure = strtol(optarg);
         break;
       case 'G':
 #ifndef EXPOSURE_CONTROL
         cout << "Error: Gain option (-G) not available" << endl;
         exit(1);
 #endif
-        m_gain = atoi(optarg);
+        m_gain = strtol(optarg);
         break;
       case 'B':
 #ifndef EXPOSURE_CONTROL
         cout << "Error: Brightness option (-B) not available" << endl;
         exit(1);
 #endif
-        m_brightness = atoi(optarg);
+        m_brightness = strtol(optarg);
         break;
       case 'D':
-        m_deviceId = atoi(optarg);
+        m_deviceId = strtol(optarg);
         break;
       case 'n':
         if (!m_camera_number) {
@@ -302,8 +302,8 @@ public:
           }
 
           try {
-              while (!feof(in)) {
-                  if (fgets(buf, 512, in) != NULL) command_out += buf;
+              while (feof(in) != NULL) {
+                  if (fgets(buf, 512, in) != nullptr) command_out += static_cast<char*>(buf);
               }
           } catch (...) {
               pclose(in);
@@ -330,7 +330,7 @@ public:
         }
         break;
       case 'N':
-        m_camera_number = atoi(optarg);
+        m_camera_number = strtol(optarg);
         if(m_camera_number > 2 || m_camera_number < 1) {
             cout << "Error: camera number must be 1 (front) or 2 (back)";
             exit(1);
