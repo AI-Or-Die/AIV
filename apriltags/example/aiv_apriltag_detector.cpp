@@ -314,13 +314,19 @@ public:
     if (m_camera_number == 2) getline(configFile, line);
     // Read in values one at a time
     stringstream linestream(line);
-    string camera_name;
+    string camera_name; // Front or Back
+    string usb_location; //USB Hub where the camera is located
+
     linestream >> camera_name;
+    linestream >> usb_location;
+    linestream >> m_output_filename;
+    linestream >> m_width;
+    linestream >> m_height;
+    linestream >> m_fov;
+
     m_camera_name = camera_name; // Convert from std::string to cv::String
 
-    string usb_location;
-    linestream >> usb_location;
-
+    // Figure out which camera number is associated with this USB hub
     FILE *in;
     const string find_videonum_command = "find /sys/bus/usb/devices/" + usb_location + " | grep video[0-9]*$";
     string command_out;
@@ -344,17 +350,11 @@ public:
     smatch match_results;
     bool found_videonum = regex_search(command_out, match_results, videonum_regex);
     if (!found_videonum) {
-      cout << "Did not find video number, check config file" << endl;
+      cout << "Did not find video number, check USB location in config file" << endl;
       exit(1);
     }
 
     m_deviceId = stoi(match_results[1].str());
-    cout << "Device id is " << m_deviceId << endl;
-
-    linestream >> m_output_filename;
-    linestream >> m_width;
-    linestream >> m_height;
-    linestream >> m_fov;
     }
 
   void setupVideo() {
