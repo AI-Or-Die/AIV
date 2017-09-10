@@ -45,7 +45,7 @@ def degreesToMotorDirections(angle):
     """Turns angle into AA/aa/ZZ/zz directions"""
 
     # Get speed between 0 and 25
-    normalized_angle = angle / h_fov
+    normalized_angle = angle / (h_fov / 2)
     if normalized_angle < -1:
         normalized_angle = -1
     if normalized_angle > 1:
@@ -68,7 +68,7 @@ def displayTTYSend(str1):
     """Sends a string to the motor controller.
     """
     port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
-    port.write((str1 + '\n').encode('ascii'))
+    port.write(('<' + str1 + '>' + '\n').encode('ascii'))
     port.close()
 
 if __name__ == '__main__':
