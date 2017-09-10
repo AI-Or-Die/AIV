@@ -23,6 +23,10 @@ using namespace std;
 #include <string>
 #include <regex>
 #include <cmath>
+#include <thread>
+#include <memory>
+#include <atomic>
+#include <mutex>
 
 const string usage = "\n"
   "Usage:\n"
@@ -115,6 +119,70 @@ void wRo_to_euler(const Eigen::Matrix3d& wRo, double& yaw, double& pitch, double
 
 bool break_camera_loop = false;
 
+class CameraUpdater {
+  private:
+  cv::VideoCapture m_cap;
+  int camera_number;
+  cv::Mat latest_picture;
+  thread updater_thread;
+  atomic<bool> thread_is_running;
+  mutex picture_lock;
+
+  public:
+  CameraUpdater(int camera_number) : camera_number(camera_number), m_cap(camera_number), thread_is_running(false) {
+    thread_is_running = true;
+    if (!m_cap.isOpened()) {
+      cerr << "Capture device not opened" << endl;
+      exit(1);
+    }
+  }
+
+  CameraUpdater(int camera_number, int width, int height) : CameraUpdater(camera_number) {
+    m_cap.set(CV_CAP_PROP_FRAME_WIDTH, width);
+    m_cap.set(CV_CAP_PROP_FRAME_HEIGHT, height);
+  }
+
+  ~CameraUpdater() {
+    thread_is_running = false;
+    updater_thread.join();
+    m_cap.release();
+  }
+
+  void update_camera() {
+    while (thread_is_running) {
+      cv::Mat picture;
+      bool read_picture = m_cap.read(picture);
+      if (!read_picture) {
+        cerr << "Could not read picture" << endl;
+        continue;
+      }
+      picture_lock.lock();
+      latest_picture = picture;
+      picture_lock.unlock();
+    }
+  }
+  
+  void start() {
+    thread_is_running = true;
+    picture_lock.lock();
+    bool picture_grabbed = m_cap.read(latest_picture);
+    if (!picture_grabbed) {
+      cerr << "Could not grab picture" << endl;
+      exit(1);
+    }
+    picture_lock.unlock();
+    updater_thread = thread([this] { this->update_camera(); });
+  }
+  
+  cv::Mat get_picture() {
+    picture_lock.lock();
+    cv::Mat picture = latest_picture;
+    picture_lock.unlock();
+    return picture;
+  }
+};
+
+
 class Demo {
 
   AprilTags::TagDetector* m_tagDetector;
@@ -134,8 +202,6 @@ class Demo {
 
   int m_deviceId; // camera id (in case of multiple cameras)
 
-  cv::VideoCapture m_cap;
-
   int m_exposure;
   int m_gain;
   int m_brightness;
@@ -146,6 +212,8 @@ class Demo {
   cv::Mat m_dist_coeffs;
 
   string m_output_filename;
+
+  CameraUpdater *m_camera_updater;
 
 public:
 
@@ -173,17 +241,20 @@ public:
 
     m_deviceId(0),
     m_camera_number(0),
-    m_camera_name("")
+    m_camera_name(""),
+    m_camera_updater(nullptr)
+
   {
     m_camera_matrix = (cv::Mat_<double>(3, 3) << 462.63107599, 0.,           326.21297766,
                                              0.,           462.21461581, 176.90908288,
                                              0.,           0.,           1.);
     m_dist_coeffs = (cv::Mat_<double>(1, 5) << 0.09591939, -0.19559665, 0.00127468, 0.00103905, 0.09594666);
-    capture_device = &m_cap;
   }
 
 
-  ~Demo() = default;
+  ~Demo() {
+    delete m_camera_updater;
+  }
 
 
   // changing the tag family
@@ -271,58 +342,8 @@ public:
             cout << "-n option must always come after -N" << endl;
             exit(1);
         }
-        { // Read in config directions. If our camera is the back camera, we want the second line, otherwise we want the first
-          // Open file
-          ifstream configFile(optarg);
-          string line;
-          // Read in line 1 for front, line 2 for back
-          getline(configFile, line);
-          if (m_camera_number == 2) getline(configFile, line);
-          // Read in values one at a time
-          stringstream linestream(line);
-          string camera_name;
-          linestream >> camera_name;
-          m_camera_name = camera_name; // Convert from std::string to cv::String
 
-          string usb_location;
-          linestream >> usb_location;
-
-          FILE *in;
-          char buf[512];
-          const string find_videonum_command = "find /sys/bus/usb/devices/" + usb_location + " | grep video[0-9]*$";
-          string command_out;
-
-          if(!(in = popen(find_videonum_command.c_str(), "r"))) {
-              std:cout << "Could not open video command";
-          }
-
-          try {
-              while (feof(in) != NULL) {
-                  if (fgets(buf, 512, in) != nullptr) command_out += static_cast<char*>(buf);
-              }
-          } catch (...) {
-              pclose(in);
-              throw;
-          }
-          pclose(in);
-
-          regex videonum_regex("video([0-9]+)\n?$"); // Gets the video number at the end of output
-          smatch match_results;
-          bool found_videonum = regex_search(command_out, match_results, videonum_regex);
-          if (!found_videonum) {
-              cout << "Did not find video number, check config file" << endl;
-              exit(1);
-          }
-
-          m_deviceId = stoi(match_results[1].str());
-          cout << "Device id is " << m_deviceId << endl;
-
-
-          linestream >> m_output_filename;
-          linestream >> m_width;
-          linestream >> m_height;
-          linestream >> m_fov;
-        }
+        readConfig(optarg);
         break;
       case 'N':
         m_camera_number = strtol(optarg);
@@ -349,6 +370,59 @@ public:
       cv::namedWindow(windowName, 1);
     }
   }
+
+  // Read in config directions. If our camera is the back camera, we want the second line, otherwise we want the first
+  void readConfig(const char* file) {
+    // Open file
+    ifstream configFile(file);
+    string line;
+    // Read in line 1 for front, line 2 for back
+    getline(configFile, line);
+    if (m_camera_number == 2) getline(configFile, line);
+    // Read in values one at a time
+    stringstream linestream(line);
+    string camera_name; // Front or Back
+    string usb_location; //USB Hub where the camera is located
+
+    linestream >> camera_name;
+    linestream >> usb_location;
+    linestream >> m_output_filename;
+    linestream >> m_width;
+    linestream >> m_height;
+    linestream >> m_fov;
+
+    m_camera_name = camera_name; // Convert from std::string to cv::String
+
+    // Figure out which camera number is associated with this USB hub
+    FILE *in;
+    const string find_videonum_command = "find /sys/bus/usb/devices/" + usb_location + " | grep video[0-9]*$";
+    string command_out;
+
+    if(!(in = popen(find_videonum_command.c_str(), "r"))) {
+      std:cout << "Could not open video command";
+    }
+
+    try {
+      char buf[512];
+      while (!feof(in)) {
+        if (fgets(buf, 512, in) != NULL) command_out += buf;
+      }
+    } catch (...) {
+      pclose(in);
+      throw;
+    }
+    pclose(in);
+
+    regex videonum_regex("video([0-9]+)\n?$"); // Gets the video number at the end of output
+    smatch match_results;
+    bool found_videonum = regex_search(command_out, match_results, videonum_regex);
+    if (!found_videonum) {
+      cout << "Did not find video number, check USB location in config file" << endl;
+      exit(1);
+    }
+
+    m_deviceId = stoi(match_results[1].str());
+    }
 
   void setupVideo() {
 
@@ -386,20 +460,12 @@ public:
     }
     v4l2_close(device);
 #endif
+	    m_camera_updater = new CameraUpdater(m_deviceId, m_width, m_height);
 
-    // find and open a USB camera (built in laptop camera, web cam etc)
-    m_cap = cv::VideoCapture(m_deviceId);
-        if(!m_cap.isOpened()) {
-      cerr << "ERROR: Can't find video device " << m_deviceId << "\n";
-      exit(1);
-    }
-    m_cap.set(CV_CAP_PROP_FRAME_WIDTH, m_width);
-    m_cap.set(CV_CAP_PROP_FRAME_HEIGHT, m_height);
-    cout << "Camera successfully opened (ignore error messages above...)" << endl;
-    cout << "Actual resolution: "
-         << m_cap.get(CV_CAP_PROP_FRAME_WIDTH) << "x"
-         << m_cap.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
-
+	    // find and open a USB camera (built in laptop camera, web cam etc)
+	    //cout << "Camera successfully opened (ignore error messages above...)" << endl;
+    //cout << "Actual resolution: "
+    // TODO: Set height and width of camera
   }
 
   // Prints a set of detections to the given file.
@@ -520,6 +586,13 @@ public:
 
   // Contunially process video
   void loop() {
+    if (m_camera_updater == nullptr) {
+        cerr << "Camera updater not initialized" << endl;
+        exit(1);
+    }
+    cerr << "Starting updater" << endl;
+    m_camera_updater->start();
+    cout << "Started updater" << endl;
 
     cv::Mat image;
     cv::Mat image_gray;
@@ -530,13 +603,11 @@ public:
     while (!break_camera_loop) {
 
       // capture frame
-      bool image_read_success = m_cap.read(image);
+      image = m_camera_updater->get_picture();
+      cerr << "Got image" << endl;
 
-      if (!image_read_success) {
-          cout << "Failed to read image from camera " << m_deviceId << endl;
-          continue;
-      }
       processImage(image, image_gray);
+      cerr << "Processed image" << endl;
 
       // print out the frame rate at which image frames are being processed
       frame++;
@@ -550,14 +621,13 @@ public:
       if (cv::waitKey(1) == 'q') break;
     }
 
-    m_cap.release();
   }
 
 }; // Demo
 
 // Breaks out of the camera loop gently on ctrl+c.
 void signalHandler (int signum) {
-    break_camera_loop = true;
+  break_camera_loop = true;
 }
 
 int main(int argc, char* argv[]) {

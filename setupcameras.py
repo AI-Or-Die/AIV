@@ -78,7 +78,6 @@ def main():
         cap.release()
     cv2.destroyAllWindows()
     
-    usb_matcher = re.compile(r'usb[0-9].*\.[0-9]+')
     usb_path_finder_command_front = "udevadm info --name video" + str(front_camera_number) + " -q path"
     usb_path_finder_command_back = "udevadm info --name video" + str(back_camera_number) + " -q path"
     
@@ -90,8 +89,11 @@ def main():
 
     print(path_finder_process_output_front)
     print(path_finder_process_output_back)
-    usb_path_front = usb_matcher.findall(path_finder_process_output_front)[0]
-    usb_path_back = usb_matcher.findall(path_finder_process_output_back)[0]
+
+    # Make sure we got the output we wanted
+    usb_path_front = path_finder_process_output_front.split('/')[-3] + '/'
+    usb_path_back = path_finder_process_output_back.split('/')[-3] + '/'
+
 
     with open(save_file, 'w') as file:
         file.write('Front ' + usb_path_front + ' ' + 
