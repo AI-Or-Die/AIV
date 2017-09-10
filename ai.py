@@ -45,7 +45,7 @@ def degreesToMotorDirections(angle):
     """Turns angle into AA/aa/ZZ/zz directions"""
 
     # Get speed between 0 and 25
-    normalized_angle = angle / h_fov
+    normalized_angle = angle / (h_fov / 2)
     if normalized_angle < -1:
         normalized_angle = -1
     if normalized_angle > 1:
