@@ -345,58 +345,7 @@ public:
             cout << "-n option must always come after -N" << endl;
             exit(1);
         }
-        { // Read in config directions. If our camera is the back camera, we want the second line, otherwise we want the first
-          // Open file
-          ifstream configFile(optarg);
-          string line;
-          // Read in line 1 for front, line 2 for back
-          getline(configFile, line);
-          if (m_camera_number == 2) getline(configFile, line);
-          // Read in values one at a time
-          stringstream linestream(line);
-          string camera_name;
-          linestream >> camera_name;
-          m_camera_name = camera_name; // Convert from std::string to cv::String
-
-          string usb_location;
-          linestream >> usb_location;
-
-          FILE *in;
-          char buf[512];
-          const string find_videonum_command = "find /sys/bus/usb/devices/" + usb_location + " | grep video[0-9]*$";
-          string command_out;
-
-          if(!(in = popen(find_videonum_command.c_str(), "r"))) {
-              std:cout << "Could not open video command";
-          }
-
-          try {
-              while (!feof(in)) {
-                  if (fgets(buf, 512, in) != NULL) command_out += buf;
-              }
-          } catch (...) {
-              pclose(in);
-              throw;
-          }
-          pclose(in);
-
-          regex videonum_regex("video([0-9]+)\n?$"); // Gets the video number at the end of output
-          smatch match_results;
-          bool found_videonum = regex_search(command_out, match_results, videonum_regex);
-          if (!found_videonum) {
-              cout << "Did not find video number, check config file" << endl;
-              exit(1);
-          }
-
-          m_deviceId = stoi(match_results[1].str());
-          cout << "Device id is " << m_deviceId << endl;
-
-
-          linestream >> m_output_filename;
-          linestream >> m_width;
-          linestream >> m_height;
-          linestream >> m_fov;
-        }
+        readConfig(optarg);
         break;
       case 'N':
         m_camera_number = atoi(optarg);
@@ -423,6 +372,59 @@ public:
       cv::namedWindow(windowName, 1);
     }
   }
+
+  // Read in config directions. If our camera is the back camera, we want the second line, otherwise we want the first
+  void readConfig(const char* file) {
+    // Open file
+    ifstream configFile(file);
+    string line;
+    // Read in line 1 for front, line 2 for back
+    getline(configFile, line);
+    if (m_camera_number == 2) getline(configFile, line);
+    // Read in values one at a time
+    stringstream linestream(line);
+    string camera_name; // Front or Back
+    string usb_location; //USB Hub where the camera is located
+
+    linestream >> camera_name;
+    linestream >> usb_location;
+    linestream >> m_output_filename;
+    linestream >> m_width;
+    linestream >> m_height;
+    linestream >> m_fov;
+
+    m_camera_name = camera_name; // Convert from std::string to cv::String
+
+    // Figure out which camera number is associated with this USB hub
+    FILE *in;
+    const string find_videonum_command = "find /sys/bus/usb/devices/" + usb_location + " | grep video[0-9]*$";
+    string command_out;
+
+    if(!(in = popen(find_videonum_command.c_str(), "r"))) {
+      std:cout << "Could not open video command";
+    }
+
+    try {
+      char buf[512];
+      while (!feof(in)) {
+        if (fgets(buf, 512, in) != NULL) command_out += buf;
+      }
+    } catch (...) {
+      pclose(in);
+      throw;
+    }
+    pclose(in);
+
+    regex videonum_regex("video([0-9]+)\n?$"); // Gets the video number at the end of output
+    smatch match_results;
+    bool found_videonum = regex_search(command_out, match_results, videonum_regex);
+    if (!found_videonum) {
+      cout << "Did not find video number, check USB location in config file" << endl;
+      exit(1);
+    }
+
+    m_deviceId = stoi(match_results[1].str());
+    }
 
   void setupVideo() {
 
@@ -627,7 +629,7 @@ public:
 
 // Breaks out of the camera loop gently on ctrl+c.
 void signalHandler (int signum) {
-    break_camera_loop = true;
+  break_camera_loop = true;
 }
 
 int main(int argc, char* argv[]) {
