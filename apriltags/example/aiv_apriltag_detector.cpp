@@ -139,6 +139,11 @@ class CameraUpdater {
     }
   }
 
+  CameraUpdater(int camera_number, int width, int height) : CameraUpdater(camera_number) {
+    m_cap.set(CV_CAP_PROP_FRAME_WIDTH, width);
+    m_cap.set(CV_CAP_PROP_FRAME_HEIGHT, height);
+  }
+
   ~CameraUpdater() {
     thread_is_running = false;
     updater_thread.join();
@@ -455,15 +460,11 @@ public:
     }
     v4l2_close(device);
 #endif
-    m_camera_updater = new CameraUpdater(m_deviceId);
+	    m_camera_updater = new CameraUpdater(m_deviceId, m_width, m_height);
 
-    // find and open a USB camera (built in laptop camera, web cam etc)
-    //m_cap.set(CV_CAP_PROP_FRAME_WIDTH, m_width);
-    //m_cap.set(CV_CAP_PROP_FRAME_HEIGHT, m_height);
-    //cout << "Camera successfully opened (ignore error messages above...)" << endl;
+	    // find and open a USB camera (built in laptop camera, web cam etc)
+	    //cout << "Camera successfully opened (ignore error messages above...)" << endl;
     //cout << "Actual resolution: "
-    //     << m_cap.get(CV_CAP_PROP_FRAME_WIDTH) << "x"
-    //     << m_cap.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
     // TODO: Set height and width of camera
   }
 
