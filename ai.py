@@ -18,40 +18,67 @@ def main():
     weapon_arm = WeaponArm()
     weapon_arm.goToHomePosition()
 
-    start_following_tags(front_camera_filename, back_camera_filename)
+    spin_to_find_apriltags(front_camera_filename, back_camera_filename)
 
-def start_following_tags(front_camera_filename, back_camera_filename):
+def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
+    detections = detect_apriltags(front_camera_filename, back_camera_filename)
+    return len(detections['front']) > 0 or len(detections['back']) > 0
+    
+def start_spinning_incrementally(stop_condition=lambda: False):
+    start_time = time.time()
+    while not stop_condition():
+        if ((time.time() - start_time)//.40) % 2 == 1:
+            heading_string = degreesToMotorDirections(20.0)
+            displayTTYSend(heading_string)
+        else:
+            heading_string = degreesToMotorDirections(0.0)
+            displayTTYSend(heading_string)
+        time.sleep(1/30)
+    displayTTYSend('AA')
+    return
+
+def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
+    sees_apriltag = lambda: apriltag_is_in_sight(front_camera_filename, back_camera_filename)
     while True:
-        front_heading = 0
-        back_heading = 0
-        front_id = 0
-        back_id = 0
+        start_spinning_incrementally(stop_condition=sees_apriltag)
+        start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: not sees_apriltag())
+
+def start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: False):
+    while not stop_condition():
  
-        start_time = time.time()
-        with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
-            # For now, we just take the last measurement in the file.
-            # TODO: Be smarter about this.
-            for line in front_file:
-                  front_heading, front_id = (float(number) for number in line.split())
-            for line in back_file:
-                  back_heading, back_id = (float(number) for number in line.split())
+        detections = detect_apriltags(front_camera_filename, back_camera_filename)
+        front_detections = detections['front']
+        back_detections = detections['back']
 
-            if front_heading:
-                print("Front heading", front_heading, "Front id", front_id)
-            elif back_heading:
-                print("Back heading", back_heading, "Back id", back_id)
+        relevant_detections = front_detections or back_detections
+        if relevant_detections:
+            chosen_heading, tag_id = relevant_detections[0]
+        else:
+            chosen_heading, tag_id = 0, 0
 
-        # If front_id is not None, take front_id, else take back id
-        tag_id = front_id or back_id
-        chosen_heading = front_heading or back_heading
-
+        # Only attack odd numbered april tags
         if tag_id % 2 == 0:
             chosen_heading = 0
 
         heading_string = degreesToMotorDirections(chosen_heading)
         print(heading_string)
         displayTTYSend(heading_string)
-   
+
+def detect_apriltags(front_camera_filename, back_camera_filename):
+    front_heading = 0
+    back_heading = 0
+    front_id = 0
+    back_id = 0
+
+    detections = {'front': [], 'back': []}
+    
+    with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
+        for line in front_file:
+            detections['front'].append(tuple(float(number) for number in line.split()))
+        for line in back_file:
+            detections['back'].append(tuple(float(number) for number in line.split()))
+
+    return detections
 
 def degreesToMotorDirections(angle):
     """Turns angle into AA/aa/ZZ/zz directions"""
@@ -66,12 +93,12 @@ def degreesToMotorDirections(angle):
     # Find alphanumeric letter
     letter_number = abs(int(normalized_angle * 25))
 
-    if angle < 0:
-        leftLetter = chr(ord('A') + letter_number)
-        rightLetter = chr(ord('a') + letter_number)
-    else:
+    if angle > 0:
         leftLetter = chr(ord('a') + letter_number)
         rightLetter = chr(ord('A') + letter_number)
+    else:
+        leftLetter = chr(ord('A') + letter_number)
+        rightLetter = chr(ord('a') + letter_number)
 
     return leftLetter + rightLetter
 
@@ -106,8 +133,10 @@ class WeaponArm:
 
         # If we don't have this, the server motors sometimes don't start up
         # TODO: find a real fix for this
-        print(end='')
+        print('', end='')
         
 
 if __name__ == '__main__':
     main()
+import serial
+import sys
