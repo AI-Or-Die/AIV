@@ -75,8 +75,6 @@ const string usage = "\n"
 
 // Needed for getopt / command line options processing
 #include <unistd.h>
-extern int optind;
-extern char *optarg;
 
 const char* windowName = "apriltags_demo";
 
@@ -86,8 +84,8 @@ cv::VideoCapture *capture_device;
 // determining frame rate at which images are being processed)
 double tic() {
   struct timeval t;
-  gettimeofday(&t, NULL);
-  return ((double)t.tv_sec + ((double)t.tv_usec)/1000000.);
+  gettimeofday(&t, nullptr);
+  return (static_cast<double>(t.tv_sec) + (static_cast<double>(t.tv_usec))/1000000.);
 }
 
 
@@ -253,15 +251,14 @@ public:
     m_dist_coeffs = (cv::Mat_<double>(1, 5) << 0.09591939, -0.19559665, 0.00127468, 0.00103905, 0.09594666);
   }
 
-  ~Demo() {
 
-    capture_device = NULL;
+  ~Demo() {
     delete m_camera_updater;
   }
 
 
   // changing the tag family
-  void setTagCodes(string s) {
+  void setTagCodes(const string &s) {
     if (s=="16h5") {
       m_tagCodes = AprilTags::tagCodes16h5;
     } else if (s=="25h7") {
@@ -302,18 +299,18 @@ public:
         setTagCodes(optarg);
         break;
       case 'F':
-        m_fx = atof(optarg);
+        m_fx = strtod(optarg);
         m_fy = m_fx;
         break;
       case 'H':
-        m_height = atoi(optarg);
+        m_height = strtol(optarg);
         m_py = m_height/2;
          break;
       case 'S':
-        m_tagSize = atof(optarg);
+        m_tagSize = strtod(optarg);
         break;
       case 'W':
-        m_width = atoi(optarg);
+        m_width = strtol(optarg);
         m_px = m_width/2;
         break;
       case 'E':
@@ -321,34 +318,35 @@ public:
         cout << "Error: Exposure option (-E) not available" << endl;
         exit(1);
 #endif
-        m_exposure = atoi(optarg);
+        m_exposure = strtol(optarg);
         break;
       case 'G':
 #ifndef EXPOSURE_CONTROL
         cout << "Error: Gain option (-G) not available" << endl;
         exit(1);
 #endif
-        m_gain = atoi(optarg);
+        m_gain = strtol(optarg);
         break;
       case 'B':
 #ifndef EXPOSURE_CONTROL
         cout << "Error: Brightness option (-B) not available" << endl;
         exit(1);
 #endif
-        m_brightness = atoi(optarg);
+        m_brightness = strtol(optarg);
         break;
       case 'D':
-        m_deviceId = atoi(optarg);
+        m_deviceId = strtol(optarg);
         break;
       case 'n':
-        if (!m_camera_number) {
+        if (m_camera_number == NULL) {
             cout << "-n option must always come after -N" << endl;
             exit(1);
         }
+
         readConfig(optarg);
         break;
       case 'N':
-        m_camera_number = atoi(optarg);
+        m_camera_number = strtol(optarg);
         if(m_camera_number > 2 || m_camera_number < 1) {
             cout << "Error: camera number must be 1 (front) or 2 (back)";
             exit(1);
