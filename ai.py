@@ -18,8 +18,33 @@ def main():
     weapon_arm = WeaponArm()
     weapon_arm.goToHomePosition()
 
-    spin_to_find_apriltags(front_camera_filename, back_camera_filename)
+    #spin_to_find_apriltags(front_camera_filename, back_camera_filename)
+    move_toward_tag(front_camera_filename, back_camera_filename)
 
+def move_toward_tag(front_camera_filename, back_camera_filename):
+    while True:
+        detections = detect_apriltags(front_camera_filename, back_camera_filename)
+        # Find an apriltag, move toward it.
+
+        if len(detections['front']) == 0 and len(detections['back']) == 0:
+            displayTTYSend('AA')
+            time.sleep(1/30)
+            continue
+        if len(detections['front']) > 0:
+           side_char = 'a'
+           active_detection = detections['front'][0]
+        else:
+           side_char = 'A'
+           active_detection = detections['back'][0]
+
+        distance = active_detection[2]
+        power = distance * 10
+        power = int(min(power, 25))
+        power_char = chr(ord(side_char) + power)
+        displayTTYSend(power_char*2)
+        
+        
+ 
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
     return len(detections['front']) > 0 or len(detections['back']) > 0
