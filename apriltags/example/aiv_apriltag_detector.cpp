@@ -299,18 +299,18 @@ public:
         setTagCodes(optarg);
         break;
       case 'F':
-        m_fx = strtod(optarg);
+        m_fx = strtod(optarg, nullptr);
         m_fy = m_fx;
         break;
       case 'H':
-        m_height = strtol(optarg);
+        m_height = strtol(optarg, nullptr, 0);
         m_py = m_height/2;
          break;
       case 'S':
-        m_tagSize = strtod(optarg);
+        m_tagSize = strtod(optarg, nullptr);
         break;
       case 'W':
-        m_width = strtol(optarg);
+        m_width = strtol(optarg, nullptr, 0);
         m_px = m_width/2;
         break;
       case 'E':
@@ -318,27 +318,27 @@ public:
         cout << "Error: Exposure option (-E) not available" << endl;
         exit(1);
 #endif
-        m_exposure = strtol(optarg);
+        m_exposure = strtol(optarg, nullptr, 0);
         break;
       case 'G':
 #ifndef EXPOSURE_CONTROL
         cout << "Error: Gain option (-G) not available" << endl;
         exit(1);
 #endif
-        m_gain = strtol(optarg);
+        m_gain = strtol(optarg, nullptr, 0);
         break;
       case 'B':
 #ifndef EXPOSURE_CONTROL
         cout << "Error: Brightness option (-B) not available" << endl;
         exit(1);
 #endif
-        m_brightness = strtol(optarg);
+        m_brightness = strtol(optarg, nullptr, 0);
         break;
       case 'D':
-        m_deviceId = strtol(optarg);
+        m_deviceId = strtol(optarg, nullptr, 0);
         break;
       case 'n':
-        if (m_camera_number == NULL) {
+        if (m_camera_number == 0) {
             cout << "-n option must always come after -N" << endl;
             exit(1);
         }
@@ -346,7 +346,7 @@ public:
         readConfig(optarg);
         break;
       case 'N':
-        m_camera_number = strtol(optarg);
+        m_camera_number = strtol(optarg, nullptr, 0);
         if(m_camera_number > 2 || m_camera_number < 1) {
             cout << "Error: camera number must be 1 (front) or 2 (back)";
             exit(1);
@@ -484,7 +484,14 @@ public:
     for (int i = 0; i < detections.size(); i++) {
         double detection_horizontal_degrees = (detections[i].cxy.first - (m_width/2)) * h_degrees_per_pixel;
         int detection_id = detections[i].id;
-        output_file << detection_horizontal_degrees << " " << detection_id << endl;
+
+        // Get distance
+        Eigen::Vector3d translation;
+        Eigen::Matrix3d rotation;
+        detections[i].getRelativeTranslationRotation(m_tagSize, m_fx, m_fy, m_px, m_py,translation, rotation);
+        double distance = translation.norm();
+        
+        output_file << detection_horizontal_degrees << " " << detection_id << " " << distance << endl;
     }
 
     output_file.close();

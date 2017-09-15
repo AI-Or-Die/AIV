@@ -52,12 +52,14 @@ def start_following_tags(front_camera_filename, back_camera_filename, stop_condi
 
         relevant_detections = front_detections or back_detections
         if relevant_detections:
-            chosen_heading, tag_id = relevant_detections[0]
+            chosen_heading, tag_id, distance = relevant_detections[0]
         else:
-            chosen_heading, tag_id = 0, 0
+            chosen_heading, tag_id, distance = 0, 0, 0
 
-        # Only attack odd numbered april tags
-        if tag_id % 2 == 0:
+        print(distance)
+
+        # Only attack even numbered april tags
+        if tag_id % 2 == 1:
             chosen_heading = 0
 
         heading_string = degreesToMotorDirections(chosen_heading)
