@@ -1,4 +1,5 @@
 import serial
+import signal
 import sys
 import os
 import time
@@ -6,7 +7,11 @@ from pyax12.connection import Connection
 
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
+latest_instruction = 'aa0'
+
+
 def main():
+    signal.signal(signal.SIGINT, exit_gracefully)
     # Take in 3 arguments: usually front.txt, back.txt, heading.txt
     if len(sys.argv) != 4:
         print("This requires 3 arguments: the front input file, the back input file, and the output file")
@@ -14,7 +19,8 @@ def main():
     front_camera_filename = sys.argv[1]
     back_camera_filename = sys.argv[2]
     heading_filename = sys.argv[3]
-
+    
+    global weapon_arm
     weapon_arm = WeaponArm()
     weapon_arm.goToHomePosition()
 
@@ -27,7 +33,7 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         # Find an apriltag, move toward it.
 
         if len(detections['front']) == 0 and len(detections['back']) == 0:
-            displayTTYSend('AA')
+            sendMotorInstruction('AA')
             time.sleep(1/30)
             continue
         if len(detections['front']) > 0:
@@ -40,10 +46,20 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         distance = active_detection[2]
         power = distance * 10
         power = int(min(power, 25))
+        print(power)
+        if power < 11:
+            weapon_arm.goToAttackPosition()
+        else:
+            weapon_arm.goToHomePosition()
+
         power_char = chr(ord(side_char) + power)
-        displayTTYSend(power_char*2)
+        sendMotorInstruction(power_char*2)
         
         
+def exit_gracefully(signal, frame):
+    displayTTYSend('aa0')
+    exit()
+    
  
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
@@ -54,12 +70,12 @@ def start_spinning_incrementally(stop_condition=lambda: False):
     while not stop_condition():
         if ((time.time() - start_time)//.40) % 2 == 1:
             heading_string = degreesToMotorDirections(20.0)
-            displayTTYSend(heading_string)
+            sendMotorInstruction(heading_string)
         else:
             heading_string = degreesToMotorDirections(0.0)
-            displayTTYSend(heading_string)
+            sendMotorInstruction(heading_string)
         time.sleep(1/30)
-    displayTTYSend('AA')
+    sendMotorInstruction('AA')
     return
 
 def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
@@ -81,15 +97,13 @@ def start_following_tags(front_camera_filename, back_camera_filename, stop_condi
         else:
             chosen_heading, tag_id, distance = 0, 0, 0
 
-        print(distance)
-
         # Only attack even numbered april tags
         if tag_id % 2 == 1:
             chosen_heading = 0
 
         heading_string = degreesToMotorDirections(chosen_heading)
         print(heading_string)
-        displayTTYSend(heading_string)
+        sendMotorInstruction(heading_string)
 
 def detect_apriltags(front_camera_filename, back_camera_filename):
     front_heading = 0
@@ -129,6 +143,17 @@ def degreesToMotorDirections(angle):
 
     return leftLetter + rightLetter
 
+def sendMotorInstruction(str1):
+    global latest_instruction
+    assert len(str1) == 2
+    latest_instruction = str1 + latest_instruction[2:]
+    displayTTYSend(latest_instruction)
+
+def sendWeaponInstruction(str1):
+    global latest_instruction
+    assert str1 == '0' or str1 == '1'
+    latest_instruction = latest_instruction[:2] + str1 + latest_instruction[3:]
+    displayTTYSend(latest_instruction)
 
 def displayTTYSend(str1):
     """Sends a string to the motor controller.
@@ -160,6 +185,11 @@ class WeaponArm:
 
         # If we don't have this, the server motors sometimes don't start up
         # TODO: find a real fix for this
+        print('', end='')
+
+    def goToAttackPosition(self):
+        self.serial_connection.goto(1, 2100, speed=64)
+        self.serial_connection.goto(4, 1023, speed=64)
         print('', end='')
         
 
