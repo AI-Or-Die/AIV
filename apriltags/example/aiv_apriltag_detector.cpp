@@ -545,7 +545,7 @@ public:
     // detect April tags (requires a gray scale image)
     cv::cvtColor(image, image_gray, CV_BGR2GRAY);
 
-    cv::undistort(image_gray, image_gray.clone(), m_camera_matrix, m_dist_coeffs);
+    //cv::undistort(image_gray, image_gray.clone(), m_camera_matrix, m_dist_coeffs);
 
     double t0;
     if (m_timing) {
