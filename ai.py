@@ -35,25 +35,37 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         if len(detections['front']) == 0 and len(detections['back']) == 0:
             sendMotorInstruction('AA')
             time.sleep(1/30)
+            weapon_arm.goToHomePosition()
+            sendWeaponInstruction('0')
             continue
+        sendWeaponInstruction('1')
         if len(detections['front']) > 0:
-           side_char = 'a'
+           side = 'front'
            active_detection = detections['front'][0]
         else:
-           side_char = 'A'
+           side = 'back'
            active_detection = detections['back'][0]
 
         distance = active_detection[2]
+        heading = active_detection[0]
         power = distance * 10
         power = int(min(power, 25))
-        print(power)
-        if power < 11:
+        if side == 'back':
+            power = -power
+        if -11 < power < 11:
             weapon_arm.goToAttackPosition()
         else:
             weapon_arm.goToHomePosition()
 
-        power_char = chr(ord(side_char) + power)
-        sendMotorInstruction(power_char*2)
+        heading_char = degreesToMotorDirections(heading)
+        left_adjustment, right_adjustment = (motorDirectionsToPower(letter) for letter in heading_char)
+        if side == 'back':
+            left_adjustment, right_adjustment = -left_adjustment, -right_adjustment
+        leftPower = int(min(max(power + left_adjustment, -25), 25))
+        rightPower = int(min(max(power + right_adjustment, -25), 25))
+        print(leftPower, rightPower)
+        motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
+        sendMotorInstruction(motorInstruction)
         
         
 def exit_gracefully(signal, frame):
@@ -143,10 +155,23 @@ def degreesToMotorDirections(angle):
 
     return leftLetter + rightLetter
 
+def motorDirectionsToPower(letter):
+    if 'a' <= letter <= 'z':
+        return ord(letter) - ord('a')
+    else:
+        return -(ord(letter) - ord('A'))
+
+def powerToMotorDirections(power):
+    if power > 0:
+        return chr(power + ord('a'))
+    else:
+        return chr(-power + ord('A'))
+
 def sendMotorInstruction(str1):
     global latest_instruction
     assert len(str1) == 2
     latest_instruction = str1 + latest_instruction[2:]
+    print(latest_instruction)
     displayTTYSend(latest_instruction)
 
 def sendWeaponInstruction(str1):
