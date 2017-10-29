@@ -28,8 +28,8 @@ def main():
         #spin_to_find_apriltags(front_camera_filename, back_camera_filename)
         move_toward_tag(front_camera_filename, back_camera_filename)
     except Exception as e:
-        with open("main.log", "w") as f:
-            f.write(str(e))
+        # odroid logging
+        pass
 
 
 def move_toward_tag(front_camera_filename, back_z_filename):
@@ -210,17 +210,25 @@ class WeaponArm:
                 serial_connection_successful = False
 
     def goToHomePosition(self):
-        self.serial_connection.goto(1, 1900, speed=64)
-        self.serial_connection.goto(4, 1023, speed=64)
+        try:
+            self.serial_connection.goto(1, 1900, speed=64)
+            self.serial_connection.goto(4, 1023, speed=64)
 
-        # If we don't have this, the server motors sometimes don't start up
-        # TODO: find a real fix for this
-        print('', end='')
+            # If we don't have this, the server motors sometimes don't start up
+            # TODO: find a real fix for this
+            print('', end='')
+        except exception as e:
+            # odroid logging
+            pass
 
     def goToAttackPosition(self):
-        self.serial_connection.goto(1, 2100, speed=64)
-        self.serial_connection.goto(4, 1023, speed=64)
-        print('', end='')
+        try:
+            self.serial_connection.goto(1, 2100, speed=64)
+            self.serial_connection.goto(4, 1023, speed=64)
+            print('', end='')
+        except exception as e:
+            # odroid logging
+            pass
 
 
 if __name__ == '__main__':
