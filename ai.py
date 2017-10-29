@@ -11,23 +11,28 @@ latest_instruction = 'aa0'
 
 
 def main():
-    signal.signal(signal.SIGINT, exit_gracefully)
-    # Take in 3 arguments: usually front.txt, back.txt, heading.txt
-    if len(sys.argv) != 4:
-        print("This requires 3 arguments: the front input file, the back input file, and the output file")
-        exit(1)
-    front_camera_filename = sys.argv[1]
-    back_camera_filename = sys.argv[2]
-    heading_filename = sys.argv[3]
-    
-    global weapon_arm
-    weapon_arm = WeaponArm()
-    weapon_arm.goToHomePosition()
+    try:
+        signal.signal(signal.SIGINT, exit_gracefully)
+        # Take in 3 arguments: usually front.txt, back.txt, heading.txt
+        if len(sys.argv) != 4:
+            print("This requires 3 arguments: the front input file, the back input file, and the output file")
+            exit(1)
+        front_camera_filename = sys.argv[1]
+        back_camera_filename = sys.argv[2]
+        heading_filename = sys.argv[3]
 
-    #spin_to_find_apriltags(front_camera_filename, back_camera_filename)
-    move_toward_tag(front_camera_filename, back_camera_filename)
+        global weapon_arm
+        weapon_arm = WeaponArm()
+        weapon_arm.goToHomePosition()
 
-def move_toward_tag(front_camera_filename, back_camera_filename):
+        #spin_to_find_apriltags(front_camera_filename, back_camera_filename)
+        move_toward_tag(front_camera_filename, back_camera_filename)
+    except Exception as e:
+        with open("main.log", "w") as f:
+            f.write(str(e))
+
+
+def move_toward_tag(front_camera_filename, back_z_filename):
     while True:
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         # Find an apriltag, move toward it.
@@ -66,17 +71,17 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         print(leftPower, rightPower)
         motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
         sendMotorInstruction(motorInstruction)
-        
-        
+
+
 def exit_gracefully(signal, frame):
     displayTTYSend('aa0')
     exit()
-    
- 
+
+
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
     return len(detections['front']) > 0 or len(detections['back']) > 0
-    
+
 def start_spinning_incrementally(stop_condition=lambda: False):
     start_time = time.time()
     while not stop_condition():
@@ -98,7 +103,7 @@ def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
 
 def start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: False):
     while not stop_condition():
- 
+
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         front_detections = detections['front']
         back_detections = detections['back']
@@ -124,7 +129,7 @@ def detect_apriltags(front_camera_filename, back_camera_filename):
     back_id = 0
 
     detections = {'front': [], 'back': []}
-    
+
     with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
         for line in front_file:
             detections['front'].append(tuple(float(number) for number in line.split()))
@@ -192,7 +197,7 @@ class WeaponArm:
         # Wait for arm to be available
         while not os.path.exists('/dev/ttyACM0'):
             time.sleep(.1)
-    
+
         # Set up actuators
         serial_connection_successful = False
         while not serial_connection_successful:
@@ -216,7 +221,7 @@ class WeaponArm:
         self.serial_connection.goto(1, 2100, speed=64)
         self.serial_connection.goto(4, 1023, speed=64)
         print('', end='')
-        
+
 
 if __name__ == '__main__':
     main()
