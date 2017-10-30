@@ -5,6 +5,7 @@ import os
 import time
 import random
 from pyax12.connection import Connection
+from weapon import WeaponArm
 
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
@@ -20,7 +21,7 @@ def main():
     front_camera_filename = sys.argv[1]
     back_camera_filename = sys.argv[2]
     heading_filename = sys.argv[3]
-    
+
     global weapon_arm
     weapon_arm = WeaponArm()
     #weapon_arm.goToHomePosition()
@@ -70,17 +71,16 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         print(leftPower, rightPower)
         motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
         sendMotorInstruction(motorInstruction)
-        
-        
+
+
 def exit_gracefully(signal, frame):
     displayTTYSend('aa0')
     exit()
-    
- 
+
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
     return len(detections['front']) > 0 or len(detections['back']) > 0
-    
+
 def start_spinning_incrementally(stop_condition=lambda: False):
     start_time = time.time()
     while not stop_condition():
@@ -102,7 +102,7 @@ def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
 
 def start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: False):
     while not stop_condition():
- 
+
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         front_detections = detections['front']
         back_detections = detections['back']
@@ -128,7 +128,7 @@ def detect_apriltags(front_camera_filename, back_camera_filename):
     back_id = 0
 
     detections = {'front': [], 'back': []}
-    
+
     with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
         for line in front_file:
             detections['front'].append(tuple(float(number) for number in line.split()))
@@ -191,89 +191,7 @@ def displayTTYSend(str1):
     port.write(('<' + str1 + '>' + '\n').encode('ascii'))
     port.close()
 
-class WeaponArm:
-    MAX_UP = 1400
-    MAX_DOWN = 2100
-    MAX_LEFT=1023
-    MAX_RIGHT=3*1023
-    def __init__(self):
-        # Wait for arm to be available
-        while not os.path.exists('/dev/ttyACM0'):
-            time.sleep(.1)
-    
-        # Set up actuators
-        serial_connection_successful = False
-        while not serial_connection_successful:
-            serial_connection_successful=True
-            try:
-                self.serial_connection = Connection(port='/dev/ttyACM0',
-                                               baudrate=1000000,
-                                               timeout=.1)
-            except serial.serialutil.SerialException:
-                serial_connection_successful = False
 
-    def goToRange(self,up=0,left=1):
-        try:
-            self.serial_connection.goto(1, int(self.MAX_UP*up+self.MAX_DOWN*(1-up)), speed=64)
-            self.serial_connection.goto(4, int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)), speed=64)
-        except Exception as e:
-            with open('main.log','a') as f:
-                f.write(str(e)+"\n")
-
-        print('', end='')
-
-    def goUpDown(self):
-        try:
-            self.goToRange(up=1)
-            time.sleep(2)
-            self.goToRange(up=0)
-            time.sleep(2)
-            self.goToRange(up=1)
-            time.sleep(2)
-            self.goToRange(up=0)
-            time.sleep(2)
-        except Exception as e:
-            with open('main.log','a') as f:
-                f.write(str(e)+"\n")
-  
-        print('', end='')
-
-    def goCrazy(self):
-        try:
-            self.goToRange(up=random.random(),left=random.random())
-            time.sleep(1.5)
-            self.goToRange(up=random.random(),left=random.random())
-            time.sleep(1.5)
-            self.goToRange(up=random.random(),left=random.random())
-            time.sleep(1.5)
-            self.goToRange(up=random.random(),left=random.random())
-            time.sleep(1.5)
-        except Exception as e:
-            with open('main.log','a') as f:
-                f.write(str(e)+"\n")
-  
-        print('', end='')
-
-    def goToHomePosition(self):
-        try:
-            self.serial_connection.goto(1, 1900, speed=64)
-            self.serial_connection.goto(4, 1023, speed=64)
-        except Exception as e:
-            with open('main.log','a') as f:
-                f.write(str(e))
-        # If we don't have this, the server motors sometimes don't start up
-        # TODO: find a real fix for this
-        print('', end='')
-
-    def goToAttackPosition(self):
-        try:
-            self.serial_connection.goto(1, 2100, speed=64)
-            self.serial_connection.goto(4, 1023, speed=64)
-            print('', end='')
-        except Exception as e:
-            with open('main.log','a') as f:
-                f.write(str(e))
-        
 
 if __name__ == '__main__':
     main()
