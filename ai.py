@@ -6,6 +6,7 @@ import time
 import random
 from pyax12.connection import Connection
 from weapon import WeaponArm
+from datetime import datetime,timedelta
 
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
@@ -21,7 +22,7 @@ def main():
     front_camera_filename = sys.argv[1]
     back_camera_filename = sys.argv[2]
     heading_filename = sys.argv[3]
-
+    
     global weapon_arm
     weapon_arm = WeaponArm()
     #weapon_arm.goToHomePosition()
@@ -31,6 +32,7 @@ def main():
     move_toward_tag(front_camera_filename, back_camera_filename)
 
 def move_toward_tag(front_camera_filename, back_camera_filename):
+    d = datetime.now()
     while True:
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         # Find an apriltag, move toward it.
@@ -38,7 +40,7 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         if len(detections['front']) == 0 and len(detections['back']) == 0:
             sendMotorInstruction('AA')
             time.sleep(1/30)
-            weapon_arm.goToHomePosition()
+            weapon_arm.goToRange(up=1)
             sendWeaponInstruction('0')
             continue
         sendWeaponInstruction('1')
@@ -56,7 +58,7 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         if side == 'back':
             power = -power
         up = abs(power)/25
-        weapon_arm.goToRange(up=up)
+        weapon_arm.goToRange(up=up,left=1 if side=="front" else 0,amplitude=up,t=(datetime.now()-d).total_seconds())
         #if -11 < power < 11:
         #    weapon_arm.goToAttackPosition()
         #else:
@@ -71,16 +73,17 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         print(leftPower, rightPower)
         motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
         sendMotorInstruction(motorInstruction)
-
-
+        
+        
 def exit_gracefully(signal, frame):
     displayTTYSend('aa0')
     exit()
-
+    
+ 
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
     return len(detections['front']) > 0 or len(detections['back']) > 0
-
+    
 def start_spinning_incrementally(stop_condition=lambda: False):
     start_time = time.time()
     while not stop_condition():
@@ -102,7 +105,7 @@ def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
 
 def start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: False):
     while not stop_condition():
-
+ 
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         front_detections = detections['front']
         back_detections = detections['back']
@@ -128,7 +131,7 @@ def detect_apriltags(front_camera_filename, back_camera_filename):
     back_id = 0
 
     detections = {'front': [], 'back': []}
-
+    
     with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
         for line in front_file:
             detections['front'].append(tuple(float(number) for number in line.split()))
@@ -167,9 +170,9 @@ def motorDirectionsToPower(letter):
 
 def powerToMotorDirections(power):
     if power > 0:
-        return chr(power + ord('a'))
+        return chr(power + ord('A'))
     else:
-        return chr(-power + ord('A'))
+        return chr(-power + ord('a'))
 
 def sendMotorInstruction(str1):
     global latest_instruction
@@ -190,7 +193,6 @@ def displayTTYSend(str1):
     port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
     port.write(('<' + str1 + '>' + '\n').encode('ascii'))
     port.close()
-
 
 
 if __name__ == '__main__':
