@@ -22,7 +22,7 @@ def main():
     front_camera_filename = sys.argv[1]
     back_camera_filename = sys.argv[2]
     heading_filename = sys.argv[3]
-    
+
     global weapon_arm
     weapon_arm = WeaponArm()
     #weapon_arm.goToHomePosition()
@@ -73,17 +73,17 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         print(leftPower, rightPower)
         motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
         sendMotorInstruction(motorInstruction)
-        
-        
+
+
 def exit_gracefully(signal, frame):
     displayTTYSend('aa0')
     exit()
-    
- 
+
+
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
     return len(detections['front']) > 0 or len(detections['back']) > 0
-    
+
 def start_spinning_incrementally(stop_condition=lambda: False):
     start_time = time.time()
     while not stop_condition():
@@ -105,7 +105,7 @@ def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
 
 def start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: False):
     while not stop_condition():
- 
+
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         front_detections = detections['front']
         back_detections = detections['back']
@@ -131,7 +131,7 @@ def detect_apriltags(front_camera_filename, back_camera_filename):
     back_id = 0
 
     detections = {'front': [], 'back': []}
-    
+
     with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
         for line in front_file:
             detections['front'].append(tuple(float(number) for number in line.split()))
@@ -182,10 +182,11 @@ def sendMotorInstruction(str1):
     displayTTYSend(latest_instruction)
 
 def sendWeaponInstruction(str1):
-    global latest_instruction
-    assert str1 == '0' or str1 == '1'
-    latest_instruction = latest_instruction[:2] + str1 + latest_instruction[3:]
-    displayTTYSend(latest_instruction)
+    pass
+    # global latest_instruction
+    # assert str1 == '0' or str1 == '1'
+    # latest_instruction = latest_instruction[:2] + str1 + latest_instruction[3:]
+    # displayTTYSend(latest_instruction)
 
 def displayTTYSend(str1):
     """Sends a string to the motor controller.
