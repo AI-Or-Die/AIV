@@ -13,6 +13,12 @@ This runs automatically and sets up a tmux session for
 2. back camera tag detector
 3. main AIV controller in ai.py 
 
+### Tmux Session
+```
+tmux a -t aiv
+```
+This pulls up the aiv tmux session 
+
 ### Other
 
 The april tag detector source is in
