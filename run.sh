@@ -1,4 +1,7 @@
 #!/bin/sh
+lsusb | grep "Logitech" >> camera2.txt
+echo "\n" >> camera2.txt
+date >> camera2.txt
 DIR=`dirname $0`
 cd ${DIR}
 tmux new-session -d -s aiv

@@ -3,12 +3,19 @@ import signal
 import sys
 import os
 import time
+import random
 from pyax12.connection import Connection
+from weapon import WeaponArm
+from datetime import datetime,timedelta
+import re
 
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
 latest_instruction = 'aa0'
-
+last_motorInstruction = 'AA'
+last_heading = 10000
+last_power = 10000
+#port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
 
 def main():
     signal.signal(signal.SIGINT, exit_gracefully)
@@ -22,54 +29,95 @@ def main():
     
     global weapon_arm
     weapon_arm = WeaponArm()
-    weapon_arm.goToHomePosition()
+    #weapon_arm.goToHomePosition()
+    weapon_arm.goToRange(up=1)
 
     #spin_to_find_apriltags(front_camera_filename, back_camera_filename)
     move_toward_tag(front_camera_filename, back_camera_filename)
 
 def move_toward_tag(front_camera_filename, back_camera_filename):
+    global last_motorInstruction
+    global last_heading
+    global last_power
+    last = 0
+    d = datetime.now()
+    move_time = d
     while True:
-        detections = detect_apriltags(front_camera_filename, back_camera_filename)
-        # Find an apriltag, move toward it.
+        m = (datetime.now()-d).microseconds
+        if last != m - m % 100:
+            last = m - m % 100
+            displayTTYSend(last_motorInstruction+"0")
+        if (datetime.now()-move_time).total_seconds()>0:  
+                  
+            detections = detect_apriltags(front_camera_filename, back_camera_filename)
+            # Find an apriltag, move toward it.
+            if len(detections['front']) == 0 and len(detections['back']) == 0:
+                if last_motorInstruction not in ["AA","aa"]:
+                    last_motorInstruction="AA"
+                    last_heading = 10000
+                    last_power = 10000
+                    #sendMotorInstruction('AA')
+                    #time.sleep(1/30)
+                    weapon_arm.goToRange(up=1)
+                    #sendWeaponInstruction('0')
+                    displayTTYSend(last_motorInstruction+"0")
+                continue
+            sendWeaponInstruction('1')
+            if len(detections['front']) > 0:
+               side = 'front'
+               active_detection = detections['front'][0]
+            else:
+               side = 'back'
+               active_detection = detections['back'][0]
 
-        if len(detections['front']) == 0 and len(detections['back']) == 0:
-            sendMotorInstruction('AA')
-            time.sleep(1/30)
-            weapon_arm.goToHomePosition()
-            sendWeaponInstruction('0')
-            continue
-        sendWeaponInstruction('1')
-        if len(detections['front']) > 0:
-           side = 'front'
-           active_detection = detections['front'][0]
-        else:
-           side = 'back'
-           active_detection = detections['back'][0]
+            distance = active_detection[2]
+            heading = active_detection[0]
+            power = distance * 10
+            power = int(min(power, 20))
+            if side == 'back':
+                power = -power
+            up = abs(power)/20
+            weapon_arm.goToRange(up=up,left=1 if side=="front" else 0,amplitude=up,t=(datetime.now()-d).total_seconds())
+            #if -11 < power < 11:
+            #    weapon_arm.goToAttackPosition()
+            #else:
+            #    weapon_arm.goToHomePosition()
 
-        distance = active_detection[2]
-        heading = active_detection[0]
-        power = distance * 10
-        power = int(min(power, 25))
-        if side == 'back':
-            power = -power
-        if -11 < power < 11:
-            weapon_arm.goToAttackPosition()
-        else:
-            weapon_arm.goToHomePosition()
-
-        heading_char = degreesToMotorDirections(heading)
-        left_adjustment, right_adjustment = (motorDirectionsToPower(letter) for letter in heading_char)
-        if side == 'back':
-            left_adjustment, right_adjustment = -left_adjustment, -right_adjustment
-        leftPower = int(min(max(power + left_adjustment, -25), 25))
-        rightPower = int(min(max(power + right_adjustment, -25), 25))
-        print(leftPower, rightPower)
-        motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
-        sendMotorInstruction(motorInstruction)
+            heading_char = degreesToMotorDirections(heading)
+            left_adjustment, right_adjustment = (motorDirectionsToPower(letter) for letter in heading_char)
+            if side == 'back':
+                left_adjustment, right_adjustment = -left_adjustment, -right_adjustment
+            leftPower = int(min(max(power + left_adjustment, -20), 20))
+            rightPower = int(min(max(power + right_adjustment, -20), 20))
+            print(leftPower, rightPower)
+            if abs(power) < 10:
+                move_time=datetime.now()+timedelta(seconds=0.5)
+            elif abs(power)>=10 and abs(power) <=20:
+                move_time=datetime.now()+timedelta(seconds=1)
+            print(heading, last_heading,power,last_power)
+            if (datetime.now()-move_time).total_seconds()<0 and abs(heading-last_heading)>1 or abs(power-last_power)>1:               
+                last_heading = heading
+                last_power = power
+                last_motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
+                displayTTYSend(last_motorInstruction+"0")
+                #sendMotorInstruction(motorInstruction,power,heading)
+        
+            #if abs(heading-last_heading)>10 or abs(power-last_power)>10:
+                #print(last_heading,heading,last_power,power)
+                #last_heading = heading
+                #last_power = power
+                #motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
+                #sendMotorInstruction(motorInstruction,power,heading)
+                #last_motorInstruction=motorInstruction
+            
+            #motorInstruction = "A" + powerToMotorDirections(rightPower)
+            #motorInstruction = powerToMotorDirections(leftPower) + "A"
+            #motorInstruction = "FF"
         
         
+# stops drive motors        
 def exit_gracefully(signal, frame):
-    displayTTYSend('aa0')
+    displayTTYSend('AA0')
     exit()
     
  
@@ -144,7 +192,7 @@ def degreesToMotorDirections(angle):
         normalized_angle = 1
 
     # Find alphanumeric letter
-    letter_number = abs(int(normalized_angle * 25))
+    letter_number = abs(int(normalized_angle * 20))
 
     if angle > 0:
         leftLetter = chr(ord('a') + letter_number)
@@ -156,67 +204,43 @@ def degreesToMotorDirections(angle):
     return leftLetter + rightLetter
 
 def motorDirectionsToPower(letter):
-    if 'a' <= letter <= 'z':
+    if 'a' <= letter <= 'u':
         return ord(letter) - ord('a')
-    else:
+    elif 'A' <= letter <= 'U':
         return -(ord(letter) - ord('A'))
 
 def powerToMotorDirections(power):
     if power > 0:
-        return chr(power + ord('a'))
+        return chr(power + ord('A'))
     else:
-        return chr(-power + ord('A'))
+        return chr(-power + ord('a'))
 
-def sendMotorInstruction(str1):
+def sendMotorInstruction(str1,power=None,heading=None):
     global latest_instruction
     assert len(str1) == 2
     latest_instruction = str1 + latest_instruction[2:]
-    print(latest_instruction)
-    displayTTYSend(latest_instruction)
+    #print(latest_instruction,power,heading)
+    #displayTTYSend(latest_instruction)
 
 def sendWeaponInstruction(str1):
-    global latest_instruction
-    assert str1 == '0' or str1 == '1'
-    latest_instruction = latest_instruction[:2] + str1 + latest_instruction[3:]
-    displayTTYSend(latest_instruction)
+    pass
+    #global latest_instruction
+    #assert str1 == '0' or str1 == '1'
+    #latest_instruction = latest_instruction[:2] + str1 + latest_instruction[3:]
+    #displayTTYSend(latest_instruction)
 
 def displayTTYSend(str1):
     """Sends a string to the motor controller.
     """
-    port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
-    port.write(('<' + str1 + '>' + '\n').encode('ascii'))
-    port.close()
-
-class WeaponArm:
-    def __init__(self):
-        # Wait for arm to be available
-        while not os.path.exists('/dev/ttyACM0'):
-            time.sleep(.1)
+    with open("debug.txt","a") as f:
+        port_mbed = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
+        str2 = ('<' + str1 + '>')
+        str2 = str2.encode("ascii")
+        port_mbed.write(str2)
+        print(str2,len(str2))
+        port_mbed.close()
     
-        # Set up actuators
-        serial_connection_successful = False
-        while not serial_connection_successful:
-            serial_connection_successful=True
-            try:
-                self.serial_connection = Connection(port='/dev/ttyACM0',
-                                               baudrate=1000000,
-                                               timeout=.1)
-            except serial.serialutil.SerialException:
-                serial_connection_successful = False
 
-    def goToHomePosition(self):
-        self.serial_connection.goto(1, 1900, speed=64)
-        self.serial_connection.goto(4, 1023, speed=64)
-
-        # If we don't have this, the server motors sometimes don't start up
-        # TODO: find a real fix for this
-        print('', end='')
-
-    def goToAttackPosition(self):
-        self.serial_connection.goto(1, 2100, speed=64)
-        self.serial_connection.goto(4, 1023, speed=64)
-        print('', end='')
-        
 
 if __name__ == '__main__':
     main()
