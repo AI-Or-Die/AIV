@@ -10,7 +10,7 @@ from datetime import datetime,timedelta
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
 latest_instruction = 'aa0'
-last_motorInstruction = 'AA'
+last_motorInstruction = 'AA0'
 last_heading = 10000
 last_power = 10000
 #port = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
@@ -44,23 +44,23 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         m = (datetime.now()-d).microseconds
         if last != m - m % 100:
             last = m - m % 100
-            displayTTYSend(last_motorInstruction+"0")
+            displayTTYSend(last_motorInstruction)
         if (datetime.now()-move_time).total_seconds()>0:
 
             detections = detect_apriltags(front_camera_filename, back_camera_filename)
             # Find an apriltag, move toward it.
             if len(detections['front']) == 0 and len(detections['back']) == 0:
-                if last_motorInstruction not in ["AA","aa"]:
-                    last_motorInstruction="AA"
+                if last_motorInstruction not in ["AA0","aa0"]:
+                    last_motorInstruction="AA0"
                     last_heading = 10000
                     last_power = 10000
                     #sendMotorInstruction('AA')
                     #time.sleep(1/30)
                     weapon_arm.goToRange(up=1)
                     #sendWeaponInstruction('0')
-                    displayTTYSend(last_motorInstruction+"0")
+                    displayTTYSend(last_motorInstruction)
                 continue
-            sendWeaponInstruction('1')
+            # sendWeaponInstruction('1')
             if len(detections['front']) > 0:
                side = 'front'
                active_detection = detections['front'][0]
@@ -87,17 +87,16 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
                 left_adjustment, right_adjustment = -left_adjustment, -right_adjustment
             leftPower = int(min(max(power + left_adjustment, -20), 20))
             rightPower = int(min(max(power + right_adjustment, -20), 20))
-            print(leftPower, rightPower)
+            #print(leftPower, rightPower)
             if abs(power) < 10:
                 move_time=datetime.now()+timedelta(seconds=0.5)
             elif abs(power)>=10 and abs(power) <=20:
                 move_time=datetime.now()+timedelta(seconds=1)
-            print(heading, last_heading,power,last_power)
             if (datetime.now()-move_time).total_seconds()<0 and abs(heading-last_heading)>1 or abs(power-last_power)>1:
                 last_heading = heading
                 last_power = power
                 last_motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
-                displayTTYSend(last_motorInstruction+"0")
+                displayTTYSend(last_motorInstruction+"1")
                 #sendMotorInstruction(motorInstruction,power,heading)
 
             #if abs(heading-last_heading)>10 or abs(power-last_power)>10:
@@ -214,9 +213,10 @@ def powerToMotorDirections(power):
         return chr(-power + ord('a'))
 
 def sendMotorInstruction(str1,power=None,heading=None):
-    global latest_instruction
-    assert len(str1) == 2
-    latest_instruction = str1 + latest_instruction[2:]
+    pass
+    # global latest_instruction
+    # assert len(str1) == 2
+    # latest_instruction = str1 + latest_instruction[2:]
     #print(latest_instruction,power,heading)
     #displayTTYSend(latest_instruction)
 
