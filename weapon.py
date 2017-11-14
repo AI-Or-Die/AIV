@@ -13,23 +13,30 @@ class WeaponArm:
     MAX_DOWN = 2100
     MAX_LEFT=1023
     MAX_RIGHT=3*1023
+    serial_connection = None
     def __init__(self):
-        # Wait for arm to be available
-        while not os.path.exists('/dev/ttyACM0'):
-            time.sleep(.1)
+        self.set_serial():
 
-        # Set up actuators
-        serial_connection_successful = False
-        while not serial_connection_successful:
-            serial_connection_successful=True
-            try:
-                self.serial_connection = Connection(port='/dev/ttyACM0',
-                                               baudrate=1000000,
-                                               timeout=.1)
-            except serial.serialutil.SerialException:
-                serial_connection_successful = False
+    def set_serial(self):
+        if self.serial_connection is None:
+            # Wait for arm to be available
+            while not os.path.exists('/dev/ttyACM0'):
+                time.sleep(.1)
+            # Set up actuators
+            serial_connection_successful = False
+            while not serial_connection_successful:
+                serial_connection_successful=True
+                try:
+                    self.serial_connection = Connection(port='/dev/ttyACM0',
+                                                   baudrate=1000000,
+                                                   timeout=.1)
+                except serial.serialutil.SerialException as e:
+                    serial_connection_successful = False
+                    with open("weapon.log","a") as f:
+                        f.write(str(e))
 
     def goToRange(self,up=0,left=1,amplitude=0,t=0):
+        self.set_serial()
         try:
             if left>0.5:
                 self.serial_connection.goto(1, int(self.MAX_UP*up+self.MAX_DOWN*(1-up)), speed=64)
@@ -76,8 +83,9 @@ class WeaponArm:
     #            f.write(str(e)+"\n")
     #
     #    print('', end='')
-  
+
     def goToHomePosition(self):
+        self.set_serial()
         try:
             self.serial_connection.goto(1, 1900, speed=64)
             self.serial_connection.goto(4, 1023, speed=64)
@@ -89,6 +97,7 @@ class WeaponArm:
         print('', end='')
 
     def goToAttackPosition(self):
+        self.set_serial()
         try:
             self.serial_connection.goto(1, 2100, speed=64)
             self.serial_connection.goto(4, 1023, speed=64)

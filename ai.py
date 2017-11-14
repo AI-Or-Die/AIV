@@ -54,10 +54,7 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
                     last_motorInstruction="AA0"
                     last_heading = 10000
                     last_power = 10000
-                    #sendMotorInstruction('AA')
-                    #time.sleep(1/30)
                     weapon_arm.goToRange(up=1)
-                    #sendWeaponInstruction('0')
                     displayTTYSend(last_motorInstruction)
                 continue
             # sendWeaponInstruction('1')
@@ -76,10 +73,6 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
                 power = -power
             up = abs(power)/20
             weapon_arm.goToRange(up=up,left=1 if side=="front" else 0,amplitude=up,t=(datetime.now()-d).total_seconds())
-            #if -11 < power < 11:
-            #    weapon_arm.goToAttackPosition()
-            #else:
-            #    weapon_arm.goToHomePosition()
 
             heading_char = degreesToMotorDirections(heading)
             left_adjustment, right_adjustment = (motorDirectionsToPower(letter) for letter in heading_char)
@@ -97,20 +90,6 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
                 last_power = power
                 last_motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
                 displayTTYSend(last_motorInstruction+"1")
-                #sendMotorInstruction(motorInstruction,power,heading)
-
-            #if abs(heading-last_heading)>10 or abs(power-last_power)>10:
-                #print(last_heading,heading,last_power,power)
-                #last_heading = heading
-                #last_power = power
-                #motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
-                #sendMotorInstruction(motorInstruction,power,heading)
-                #last_motorInstruction=motorInstruction
-
-            #motorInstruction = "A" + powerToMotorDirections(rightPower)
-            #motorInstruction = powerToMotorDirections(leftPower) + "A"
-            #motorInstruction = "FF"
-
 
 # stops drive motors
 def exit_gracefully(signal, frame):
@@ -179,7 +158,7 @@ def detect_apriltags(front_camera_filename, back_camera_filename):
     return detections
 
 def degreesToMotorDirections(angle):
-    """Turns angle into AA/aa/ZZ/zz directions"""
+    """Turns angle into AA/aa/UU/uu directions"""
 
     # Get speed between 0 and 25
     normalized_angle = angle / (h_fov / 2)
@@ -201,44 +180,21 @@ def degreesToMotorDirections(angle):
     return leftLetter + rightLetter
 
 def motorDirectionsToPower(letter):
-    if 'a' <= letter <= 'u':
-        return ord(letter) - ord('a')
-    elif 'A' <= letter <= 'U':
-        return -(ord(letter) - ord('A'))
+    if 'a' <= letter <= 'u': return ord(letter) - ord('a')
+    elif 'A' <= letter <= 'U': return -(ord(letter) - ord('A'))
 
 def powerToMotorDirections(power):
-    if power > 0:
-        return chr(power + ord('A'))
-    else:
-        return chr(-power + ord('a'))
-
-def sendMotorInstruction(str1,power=None,heading=None):
-    pass
-    # global latest_instruction
-    # assert len(str1) == 2
-    # latest_instruction = str1 + latest_instruction[2:]
-    #print(latest_instruction,power,heading)
-    #displayTTYSend(latest_instruction)
-
-def sendWeaponInstruction(str1):
-    pass
-    #global latest_instruction
-    #assert str1 == '0' or str1 == '1'
-    #latest_instruction = latest_instruction[:2] + str1 + latest_instruction[3:]
-    #displayTTYSend(latest_instruction)
+    return chr(power + ord('A')) if power > 0 else chr(-power + ord('a'))
 
 def displayTTYSend(str1):
     """Sends a string to the motor controller.
     """
     with open("debug.txt","a") as f:
         port_mbed = serial.Serial("/dev/ttyUSB0", 9600, timeout = 2)
-        str2 = ('<' + str1 + '>')
-        str2 = str2.encode("ascii")
+        str2 = ('<' + str1 + '>').encode("ascii")
         port_mbed.write(str2)
         print(str2,len(str2))
         port_mbed.close()
-
-
 
 if __name__ == '__main__':
     main()
