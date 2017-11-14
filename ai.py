@@ -7,8 +7,6 @@ import random
 from pyax12.connection import Connection
 from weapon import WeaponArm
 from datetime import datetime,timedelta
-import re
-
 h_fov = 78.0  # TODO: Read this in from config.txt and calculate real horizontal angle
 
 latest_instruction = 'aa0'
@@ -26,7 +24,7 @@ def main():
     front_camera_filename = sys.argv[1]
     back_camera_filename = sys.argv[2]
     heading_filename = sys.argv[3]
-    
+
     global weapon_arm
     weapon_arm = WeaponArm()
     #weapon_arm.goToHomePosition()
@@ -47,8 +45,8 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
         if last != m - m % 100:
             last = m - m % 100
             displayTTYSend(last_motorInstruction+"0")
-        if (datetime.now()-move_time).total_seconds()>0:  
-                  
+        if (datetime.now()-move_time).total_seconds()>0:
+
             detections = detect_apriltags(front_camera_filename, back_camera_filename)
             # Find an apriltag, move toward it.
             if len(detections['front']) == 0 and len(detections['back']) == 0:
@@ -95,13 +93,13 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
             elif abs(power)>=10 and abs(power) <=20:
                 move_time=datetime.now()+timedelta(seconds=1)
             print(heading, last_heading,power,last_power)
-            if (datetime.now()-move_time).total_seconds()<0 and abs(heading-last_heading)>1 or abs(power-last_power)>1:               
+            if (datetime.now()-move_time).total_seconds()<0 and abs(heading-last_heading)>1 or abs(power-last_power)>1:
                 last_heading = heading
                 last_power = power
                 last_motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
                 displayTTYSend(last_motorInstruction+"0")
                 #sendMotorInstruction(motorInstruction,power,heading)
-        
+
             #if abs(heading-last_heading)>10 or abs(power-last_power)>10:
                 #print(last_heading,heading,last_power,power)
                 #last_heading = heading
@@ -109,22 +107,22 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
                 #motorInstruction = powerToMotorDirections(leftPower) + powerToMotorDirections(rightPower)
                 #sendMotorInstruction(motorInstruction,power,heading)
                 #last_motorInstruction=motorInstruction
-            
+
             #motorInstruction = "A" + powerToMotorDirections(rightPower)
             #motorInstruction = powerToMotorDirections(leftPower) + "A"
             #motorInstruction = "FF"
-        
-        
-# stops drive motors        
+
+
+# stops drive motors
 def exit_gracefully(signal, frame):
     displayTTYSend('AA0')
     exit()
-    
- 
+
+
 def apriltag_is_in_sight(front_camera_filename, back_camera_filename):
     detections = detect_apriltags(front_camera_filename, back_camera_filename)
     return len(detections['front']) > 0 or len(detections['back']) > 0
-    
+
 def start_spinning_incrementally(stop_condition=lambda: False):
     start_time = time.time()
     while not stop_condition():
@@ -146,7 +144,7 @@ def spin_to_find_apriltags(front_camera_filename, back_camera_filename):
 
 def start_following_tags(front_camera_filename, back_camera_filename, stop_condition=lambda: False):
     while not stop_condition():
- 
+
         detections = detect_apriltags(front_camera_filename, back_camera_filename)
         front_detections = detections['front']
         back_detections = detections['back']
@@ -172,7 +170,7 @@ def detect_apriltags(front_camera_filename, back_camera_filename):
     back_id = 0
 
     detections = {'front': [], 'back': []}
-    
+
     with open(front_camera_filename, 'r') as front_file, open(back_camera_filename, 'r') as back_file:
         for line in front_file:
             detections['front'].append(tuple(float(number) for number in line.split()))
@@ -239,7 +237,7 @@ def displayTTYSend(str1):
         port_mbed.write(str2)
         print(str2,len(str2))
         port_mbed.close()
-    
+
 
 
 if __name__ == '__main__':
