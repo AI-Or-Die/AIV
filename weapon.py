@@ -9,13 +9,14 @@ from datetime import datetime,timedelta
 import math
 
 class WeaponArm:
-    MAX_UP = 2000 #1400
+    MAX_UP = 1700
     MAX_DOWN = 2100
     MAX_LEFT=1023
     MAX_RIGHT=3*1023
-    serial_connection = None
+    
     def __init__(self):
-        self.set_serial():
+        self.serial_connection = None
+        self.set_serial()
 
     def set_serial(self):
         if self.serial_connection is None:
@@ -25,15 +26,15 @@ class WeaponArm:
             # Set up actuators
             serial_connection_successful = False
             while not serial_connection_successful:
-                serial_connection_successful=True
                 try:
                     self.serial_connection = Connection(port='/dev/ttyACM0',
                                                    baudrate=1000000,
                                                    timeout=.1)
+                    serial_connection_successful=True
                 except serial.serialutil.SerialException as e:
                     serial_connection_successful = False
                     with open("weapon.log","a") as f:
-                        f.write(str(e))
+                        f.write(str(e)+"\n")
 
     def goToRange(self,up=0,left=1,amplitude=0,t=0):
         self.set_serial()
@@ -43,7 +44,7 @@ class WeaponArm:
             else:
                 self.serial_connection.goto(1, int((2000)*up+2100*(1-up)), speed=64)
             #self.serial_connection.goto(4, int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)), speed=64)
-            self.serial_connection.goto(4,int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)+123*amplitude*math.sin(t/(2*2*math.pi))),speed=64)
+            self.serial_connection.goto(4,int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)+123*amplitude*math.sin(t/(2*2*math.pi))),speed=450)
         except Exception as e:
             with open('main.log','a') as f:
                 f.write(str(e)+"\n")
