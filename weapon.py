@@ -44,7 +44,7 @@ class WeaponArm:
             else:
                 self.serial_connection.goto(1, int((2000)*up+2100*(1-up)), speed=64)
             #self.serial_connection.goto(4, int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)), speed=64)
-            self.serial_connection.goto(4,int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)+123*amplitude*math.sin(t/(2*2*math.pi))),speed=450)
+            self.serial_connection.goto(4,int(self.MAX_LEFT*left+self.MAX_RIGHT*(1-left)+123*amplitude*math.sin(t/(2*2*math.pi))),speed=40)
         except Exception as e:
             with open('main.log','a') as f:
                 f.write(str(e)+"\n")

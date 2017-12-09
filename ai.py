@@ -72,7 +72,7 @@ def move_toward_tag(front_camera_filename, back_camera_filename):
             if side == 'back':
                 power = -power
             up = abs(power)/20
-            weapon_arm.goToRange(up=up,left=.95 if side=="front" else .05,amplitude=up,t=(datetime.now()-d).total_seconds())
+            weapon_arm.goToRange(up=up,left=0.95 if side=="front" else 0.0,amplitude=up,t=(datetime.now()-d).total_seconds())
 
             heading_char = degreesToMotorDirections(heading)
             left_adjustment, right_adjustment = (motorDirectionsToPower(letter) for letter in heading_char)
